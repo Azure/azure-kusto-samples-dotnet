@@ -16,10 +16,10 @@ namespace SendSampleData
 
         static void Main(string[] args)
         {
-            EventHubIngestion();
+            KafkaProducerExample();
         }
 
-        static void EventHubIngestion()
+        static void KafkaProducerExample()
         {
             var config = new Dictionary<string, object>
             {
