@@ -1,0 +1,65 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<configuration>
+    <appSettings>
+        <!--
+          The following tweaks can _not_ be set in a .tweaks file. Instead, one has to modify the
+          process' environment variables in order for them to take effect:
+      
+          TWEAKS_MEMORY_DUMPER_NOIO_DISABLED:
+      
+            If non-empty, MemoryDumper.DumpMemory will not provide -noio to the debugger.
+        
+          TWEAKS_DEBUGGERS_PATH:
+      
+            If non-empty and set to an existing directory, provides the name of the directory in which
+            the debugger could be found. Directory can hold the debugger, or hold it in sub-directories
+            named x86 or x64, matching the process bitness.
+
+          TWEAKS_MEMORY_DUMPER_DEFAULT_DIRECTORY:
+      
+            If non-empty and set to an existing directory, provides the name of the directory in which
+            the memory dumper will dump data on crashes.
+      
+          TWEAKS_NEUTER_EXCEPTION_FILTERS:
+      
+            If non-empty, all exception filters will be implemented using plain vanilla
+            try/catch C# code instead of rocket-science IL codegen.
+      
+          TWEAKS_DEBUG_EXCEPTION_FILTERS:
+      
+            If non-empty, IL codegen for exception filters will write the dynamic assembly to disk for debugging.
+      
+          TWEAKS:
+      
+            If non-empty, can contain a set of key=valye pairs (delimited by an '&amp;') which are interpreted
+            as additional tweaks at the 'environment' level.
+        -->
+
+        <!-- The following tweaks are consumed by Kusto.Cloud.Platform.Utils: -->
+        <!-- A regular expression to match against names of t4-generated exception class name; a match will break into the debugger when such an exception occurs -->
+        <add key="Kusto.Cloud.Platform.Utils.Exceptions.AlertDebuggerOnExceptions" value="" />
+
+        <!-- Overrides the default trace verbosity level -->
+        <add key="-Kusto.Cloud.Platform.Utils.Tracing.OverrideTraceVerbosityLevel" value="5" />
+
+        <!-- Set to true to enable persistent storage diagnostics (in the form of traces) -->
+        <add key="Kusto.Cloud.Platform.Storage.PersistentStorage.EnablePersistentStorageDiagnostics" value="false" />
+
+        <!-- Set to http://ADDRESS:PORT/ to configure WebHttpBinding to use a particular proxy address -->
+        <add key="-Kusto.Cloud.Platform.Communication.WebHttpBinding.ProxyAddress" value="http://127.0.0.1:8888/" />
+
+        <!-- A change of this value to any value that is not 0 will trigger a full GC cycle. -->
+        <add key="-Kusto.Cloud.Platform.Utils.GarbageCollector.GCNow" value="0"/>
+
+
+        <!-- Set to true to prevent FileWatchIngestor from deleting local trace files (use only for debugging!) -->
+        <add key="Kusto.Ingest.FileWatchIngestor.DisableDeleteSourceOnSuccess" value="false" />
+
+        <!-- Set to true to prevent explicitly setting SSL/TLS to TLS1.2 -->
+        <add key="Kusto.Cloud.Platform.Net.DisableSettingTls12" value="false" />
+
+        <!-- Set to true to switch to using the MultiJson parser for all data formats (json, singlejson, and multijson) -->
+        <add key="-Kusto.Cloud.Platform.Utils.CsvFromJsonStream.UseMultiJsonParser" value="false" />
+
+    </appSettings>
+</configuration>
