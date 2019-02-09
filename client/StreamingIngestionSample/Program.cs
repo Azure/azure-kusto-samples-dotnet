@@ -117,7 +117,7 @@ namespace StreamingIngestionSample
                         table, 
                         data, 
                         null, 
-                        Kusto.Cloud.Platform.Data.DataSourceStreamFormat.Json, 
+                        Kusto.Data.Common.DataSourceFormat.json, 
                         compressStream: false,
                         mappingName: s_jsonMappingName).ResultEx();
                 }
