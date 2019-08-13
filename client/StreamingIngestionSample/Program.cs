@@ -12,9 +12,10 @@ using System.Text;
 /// Sample for performing Streaming Ingestion using Kusto Client Library
 /// IMPORTANT NOTE: Streaming Ingestion is in alpha phase and only enabled on specific clusters.
 /// This code will not work with most production/lab/ppe/dev clusters.
+/// Streaming policies must be enabled on the cluster.
 /// </summary>
 /// <remarks>
-/// This sample assumes that the cluster has database name StreamTest0 with table EventLog
+/// This sample assumes that the cluster has database named StreamTest0 with table EventLog
 /// The table has the following schema:
 /// .create table EventLog (Timestamp:datetime, EventId:long, EventText:string, Properties:dynamic)
 /// The code will create ingestion JSON mapping on the table (if one does not exist already)
@@ -27,10 +28,10 @@ namespace StreamingIngestionSample
         private const string s_jsonMappingName = "TestJsonMapping";
         private static readonly JsonColumnMapping [] s_jsonMapping = new JsonColumnMapping []
         {
-            new JsonColumnMapping { ColumnName = "Timestamp",  JsonPath = "$.EventTime",  TransformationMethod = CsvFromJsonStream.TransformationMethod.None},
-            new JsonColumnMapping { ColumnName = "EventId",    JsonPath = "$.EventId",    TransformationMethod = CsvFromJsonStream.TransformationMethod.None},
-            new JsonColumnMapping { ColumnName = "EventText",  JsonPath = "$.EventText",  TransformationMethod = CsvFromJsonStream.TransformationMethod.None},
-            new JsonColumnMapping { ColumnName = "Properties", JsonPath = "$.Properties", TransformationMethod = CsvFromJsonStream.TransformationMethod.None},
+            new JsonColumnMapping { ColumnName = "Timestamp",  JsonPath = "$.EventTime",  TransformationMethod = (TransformationMethod) CsvFromJsonStream_TransformationMethod.None},
+            new JsonColumnMapping { ColumnName = "EventId",    JsonPath = "$.EventId",    TransformationMethod = (TransformationMethod) CsvFromJsonStream_TransformationMethod.None},
+            new JsonColumnMapping { ColumnName = "EventText",  JsonPath = "$.EventText",  TransformationMethod = (TransformationMethod) CsvFromJsonStream_TransformationMethod.None},
+            new JsonColumnMapping { ColumnName = "Properties", JsonPath = "$.Properties", TransformationMethod = (TransformationMethod) CsvFromJsonStream_TransformationMethod.None},
         };
 
         static void Usage()
@@ -95,8 +96,10 @@ namespace StreamingIngestionSample
                 return;
             }
 
-            var kcsb = new KustoConnectionStringBuilder();
-            kcsb.DataSource = cluster;
+            var kcsb = new KustoConnectionStringBuilder
+            {
+                DataSource = cluster
+            };
 
             kcsb = kcsb.WithAadUserPromptAuthentication();
 
@@ -119,7 +122,7 @@ namespace StreamingIngestionSample
                         null, 
                         Kusto.Data.Common.DataSourceFormat.json, 
                         compressStream: false,
-                        mappingName: s_jsonMappingName).ResultEx();
+                        mappingName: s_jsonMappingName);
                 }
             }
 
@@ -133,7 +136,7 @@ namespace StreamingIngestionSample
                     {
                         Format = DataSourceFormat.csv,
                     };
-                    ingestClient.IngestFromStreamAsync(data, ingestProperties).ResultEx();
+                    ingestClient.IngestFromStreamAsync(data, ingestProperties);
                 }
 
                 using (var data = CreateSampleEventLogJsonStream(10))
@@ -144,7 +147,7 @@ namespace StreamingIngestionSample
                         JSONMappingReference = s_jsonMappingName
                     };
 
-                    ingestClient.IngestFromStream(data, ingestProperties);
+                    ingestClient.IngestFromStreamAsync(data, ingestProperties);
                 }
 
             }
@@ -187,7 +190,7 @@ namespace StreamingIngestionSample
             {
                 for (int i = 0; i < numberOfRecords; i++)
                 {
-                    tw.WriteLine("{0},{1},{2},{3}", DateTime.Now, i, "Sample event text", "\"{'Prop1':1, 'Prop2': 'Text'}\"");
+                    tw.WriteLine("{0},{1},{2},{3}", DateTime.Now, i, "Sample event text ddddddddddddd", "\"{'Prop1':1, 'Prop2': 'Text'}\"");
                 }
             }
             ms.Seek(0, SeekOrigin.Begin);

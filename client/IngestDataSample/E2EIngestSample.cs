@@ -76,7 +76,7 @@ namespace IngestDataSample
             using (IKustoIngestClient directClient = KustoIngestFactory.CreateDirectIngestClient(engineKustoConnectionStringBuilder))
             {
                 var kustoIngestionProperties = new KustoIngestionProperties(databaseName, tableName);
-                directClient.IngestFromDataReader(GetDataAsIDataReader(), kustoIngestionProperties);
+                directClient.IngestFromDataReaderAsync(GetDataAsIDataReader(), kustoIngestionProperties);
             }
 
             // 2. Ingest by submitting the data to the Kustolab ingestion cluster
@@ -84,7 +84,7 @@ namespace IngestDataSample
             using (IKustoIngestClient queuedClient = KustoIngestFactory.CreateQueuedIngestClient(dmKustoConnectionStringBuilderDM))
             {
                 var kustoIngestionProperties = new KustoIngestionProperties(databaseName, tableName);
-                queuedClient.IngestFromDataReader(GetDataAsIDataReader(), kustoIngestionProperties);
+                queuedClient.IngestFromDataReaderAsync(GetDataAsIDataReader(), kustoIngestionProperties);
             }
 
             // 3. Ingest by submitting the data to the Kustolab ingestion cluster - 
@@ -101,7 +101,7 @@ namespace IngestDataSample
                     // You can use either a queue or a table to track the status of your ingestion.
                     ReportMethod = IngestionReportMethod.Table
                 };
-                ingestionResult = queuedClient.IngestFromDataReader(GetDataAsIDataReader(), kustoIngestionProperties);
+                ingestionResult = queuedClient.IngestFromDataReaderAsync(GetDataAsIDataReader(), kustoIngestionProperties).Result;
             }
 
             // Obtain the status of our ingestion
@@ -146,10 +146,11 @@ namespace IngestDataSample
 
                     Console.WriteLine("Press 'r' to retry retrieving data from the table, any other key to quit");
                     var key = Console.ReadKey();
-                    if (key.KeyChar != 'r' || key.KeyChar != 'R')
+                    if (key.KeyChar != 'r' && key.KeyChar != 'R')
                     {
                         break;
                     }
+                    Console.WriteLine();
                 }
             }
         }

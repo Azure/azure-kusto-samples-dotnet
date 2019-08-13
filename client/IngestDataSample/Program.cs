@@ -14,6 +14,7 @@ namespace IngestDataSample
             Console.WriteLine("Usage:");
             Console.WriteLine("  IngestDataSample.exe KustoLab [database name]");
             Console.WriteLine("  IngestDataSample.exe Upload <connectionString> <tableName> <pathToCsvFile> [<semicolon-separated-list-of-tags>]");
+            Console.Read();
             Environment.Exit(0);
         }
 
