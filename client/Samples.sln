@@ -1,13 +1,25 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.28010.2048
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29209.62
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StreamingIngestionSample", "StreamingIngestionSample\StreamingIngestionSample.csproj", "{63F38CC7-E9EA-4B48-886A-843C116680DF}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IngestDataSample", "IngestDataSample\IngestDataSample.csproj", "{4F403CC0-E644-4087-8431-3FCC33646807}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HelloKusto", "HelloKusto\HelloKusto.csproj", "{05C2BF4A-974F-4489-A627-E4FD2BC7825F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "QueuedIngestFromStorageExample", "QueuedIngestFromStorageExample\QueuedIngestFromStorageExample.csproj", "{292AA652-E217-4FC3-92D3-68D334AD00AA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DirectIngestFromLocalFileExample", "DirectIngestFromLocalFileExample\DirectIngestFromLocalFileExample.csproj", "{E1C7AA40-28C3-486E-A235-E81F730EFB16}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "QueuedIngestFromFileWithValidationExample", "QueuedIngestFromFileWithValidationExample\QueuedIngestFromFileWithValidationExample.csproj", "{6D9F20F1-ACD4-4D75-960C-411E635E75D4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "QueuedIngestFromLocalFileReportToQueueExample", "QueuedIngestFromLocalFileReportToQueueExample\QueuedIngestFromLocalFileReportToQueueExample.csproj", "{BB03C227-72FF-49D8-86F2-BD02F1BBC764}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "QueuedIngestFromLocalFileReportToTableExample", "QueuedIngestFromLocalFileReportToTableExample\QueuedIngestFromLocalFileReportToTableExample.csproj", "{DE381D37-8D7A-48BE-8074-26A842B6FA51}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HowToDataIngestion", "HowToDataIngestion\HowToDataIngestion.csproj", "{268D7162-0782-4A97-B784-A9C7C9E2408E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -27,6 +39,30 @@ Global
 		{05C2BF4A-974F-4489-A627-E4FD2BC7825F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{05C2BF4A-974F-4489-A627-E4FD2BC7825F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{05C2BF4A-974F-4489-A627-E4FD2BC7825F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{292AA652-E217-4FC3-92D3-68D334AD00AA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{292AA652-E217-4FC3-92D3-68D334AD00AA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{292AA652-E217-4FC3-92D3-68D334AD00AA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{292AA652-E217-4FC3-92D3-68D334AD00AA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E1C7AA40-28C3-486E-A235-E81F730EFB16}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E1C7AA40-28C3-486E-A235-E81F730EFB16}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E1C7AA40-28C3-486E-A235-E81F730EFB16}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E1C7AA40-28C3-486E-A235-E81F730EFB16}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6D9F20F1-ACD4-4D75-960C-411E635E75D4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6D9F20F1-ACD4-4D75-960C-411E635E75D4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6D9F20F1-ACD4-4D75-960C-411E635E75D4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6D9F20F1-ACD4-4D75-960C-411E635E75D4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BB03C227-72FF-49D8-86F2-BD02F1BBC764}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BB03C227-72FF-49D8-86F2-BD02F1BBC764}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BB03C227-72FF-49D8-86F2-BD02F1BBC764}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BB03C227-72FF-49D8-86F2-BD02F1BBC764}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DE381D37-8D7A-48BE-8074-26A842B6FA51}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DE381D37-8D7A-48BE-8074-26A842B6FA51}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DE381D37-8D7A-48BE-8074-26A842B6FA51}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DE381D37-8D7A-48BE-8074-26A842B6FA51}.Release|Any CPU.Build.0 = Release|Any CPU
+		{268D7162-0782-4A97-B784-A9C7C9E2408E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{268D7162-0782-4A97-B784-A9C7C9E2408E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{268D7162-0782-4A97-B784-A9C7C9E2408E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{268D7162-0782-4A97-B784-A9C7C9E2408E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

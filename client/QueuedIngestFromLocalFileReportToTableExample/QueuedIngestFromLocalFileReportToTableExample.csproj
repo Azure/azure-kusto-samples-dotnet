@@ -1,21 +1,17 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{4F403CC0-E644-4087-8431-3FCC33646807}</ProjectGuid>
+    <ProjectGuid>{DE381D37-8D7A-48BE-8074-26A842B6FA51}</ProjectGuid>
     <OutputType>Exe</OutputType>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>IngestDataSample</RootNamespace>
-    <AssemblyName>IngestDataSample</AssemblyName>
-    <TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>
+    <RootNamespace>QueuedIngestFromLocalFileReportToTableExample</RootNamespace>
+    <AssemblyName>QueuedIngestFromLocalFileReportToTableExample</AssemblyName>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
-    <SccProjectName>SAK</SccProjectName>
-    <SccLocalPath>SAK</SccLocalPath>
-    <SccAuxPath>SAK</SccAuxPath>
-    <SccProvider>SAK</SccProvider>
-    <TargetFrameworkProfile />
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <Deterministic>true</Deterministic>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -36,12 +32,6 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
-  <ItemGroup>
-    <Compile Include="E2EIngestSample.cs" />
-    <Compile Include="InlineIngestor.cs" />
-    <Compile Include="Program.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
-  </ItemGroup>
   <ItemGroup>
     <Reference Include="Kusto.Cloud.Platform, Version=7.1.1.0, Culture=neutral, PublicKeyToken=829a00acde12d551, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.Azure.Kusto.Cloud.Platform.7.1.1\lib\net462\Kusto.Cloud.Platform.dll</HintPath>
@@ -64,7 +54,6 @@
     <Reference Include="Microsoft.Azure.KeyVault.WebKey, Version=3.0.4.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.Azure.KeyVault.WebKey.3.0.4\lib\net461\Microsoft.Azure.KeyVault.WebKey.dll</HintPath>
     </Reference>
-    <Reference Include="Microsoft.CSharp" />
     <Reference Include="Microsoft.Data.Edm, Version=5.8.4.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.Data.Edm.5.8.4\lib\net40\Microsoft.Data.Edm.dll</HintPath>
     </Reference>
@@ -101,8 +90,7 @@
     </Reference>
     <Reference Include="System.ComponentModel.Composition" />
     <Reference Include="System.Configuration" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="System.Core" />
     <Reference Include="System.Data.Linq" />
     <Reference Include="System.Data.SqlClient, Version=4.5.0.1, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
       <HintPath>..\packages\System.Data.SqlClient.4.6.1\lib\net461\System.Data.SqlClient.dll</HintPath>
@@ -138,8 +126,8 @@
       <Private>True</Private>
       <Private>True</Private>
     </Reference>
-    <Reference Include="System.Security.Cryptography.Algorithms, Version=4.1.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
-      <HintPath>..\packages\System.Security.Cryptography.Algorithms.4.3.1\lib\net461\System.Security.Cryptography.Algorithms.dll</HintPath>
+    <Reference Include="System.Security.Cryptography.Algorithms, Version=4.2.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Security.Cryptography.Algorithms.4.3.1\lib\net463\System.Security.Cryptography.Algorithms.dll</HintPath>
       <Private>True</Private>
       <Private>True</Private>
     </Reference>
@@ -169,19 +157,19 @@
       <HintPath>..\packages\System.Spatial.5.8.4\lib\net40\System.Spatial.dll</HintPath>
     </Reference>
     <Reference Include="System.Windows.Forms" />
-    <Reference Include="System.Xml" />
     <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="app.config" />
+    <Compile Include="Program.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="App.config" />
     <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
-       Other similar extension points exist, see Microsoft.Common.targets.
-  <Target Name="BeforeBuild">
-  </Target>
-  <Target Name="AfterBuild">
-  </Target>
-  -->
 </Project>
