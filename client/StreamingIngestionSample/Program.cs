@@ -10,7 +10,6 @@ using System.Text;
 
 /// <summary>
 /// Sample for performing Streaming Ingestion using Kusto Client Library
-/// IMPORTANT NOTE: Streaming Ingestion is in alpha phase and only enabled on specific clusters.
 /// This code will not work with most production/lab/ppe/dev clusters.
 /// Streaming policies must be enabled on the cluster.
 /// </summary>
