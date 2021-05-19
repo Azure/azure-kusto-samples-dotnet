@@ -121,7 +121,7 @@ namespace StreamingIngestionSample
                         null, 
                         Kusto.Data.Common.DataSourceFormat.json, 
                         compressStream: false,
-                        mappingName: s_jsonMappingName);
+                        mappingName: s_jsonMappingName).GetAwaiter().GetResult();
                 }
             }
 
@@ -135,7 +135,7 @@ namespace StreamingIngestionSample
                     {
                         Format = DataSourceFormat.csv,
                     };
-                    ingestClient.IngestFromStreamAsync(data, ingestProperties);
+                    ingestClient.IngestFromStreamAsync(data, ingestProperties).GetAwaiter().GetResult();
                 }
 
                 using (var data = CreateSampleEventLogJsonStream(10))
@@ -146,7 +146,7 @@ namespace StreamingIngestionSample
                         JSONMappingReference = s_jsonMappingName
                     };
 
-                    ingestClient.IngestFromStreamAsync(data, ingestProperties);
+                    ingestClient.IngestFromStreamAsync(data, ingestProperties).GetAwaiter().GetResult();
                 }
 
             }
