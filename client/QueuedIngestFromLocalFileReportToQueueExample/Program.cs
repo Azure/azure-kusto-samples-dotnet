@@ -45,14 +45,14 @@ namespace QueuedIngestFromLocalFileReportToQueueExample
             Thread.Sleep(TimeSpan.FromMinutes(8));
 
             // Retrieve and validate failures
-            var ingestionFailures = client.PeekTopIngestionFailures().GetAwaiter().GetResult();
+            var ingestionFailures = client.PeekTopIngestionFailuresAsync().GetAwaiter().GetResult();
             Ensure.IsTrue((ingestionFailures.Count() > 0), "The failed ingestion should have been reported to the failed ingestions queue");
             // Retrieve, delete and validate failures
-            ingestionFailures = client.GetAndDiscardTopIngestionFailures().GetAwaiter().GetResult();
+            ingestionFailures = client.GetAndDiscardTopIngestionFailuresAsync().GetAwaiter().GetResult();
             Ensure.IsTrue((ingestionFailures.Count() > 0), "The failed ingestion should have been reported to the failed ingestions queue");
 
             // Verify the success has also been reported to the queue
-            var ingestionSuccesses = client.GetAndDiscardTopIngestionSuccesses().GetAwaiter().GetResult();
+            var ingestionSuccesses = client.GetAndDiscardTopIngestionSuccessesAsync().GetAwaiter().GetResult();
             Ensure.ConditionIsMet((ingestionSuccesses.Count() > 0),
                 "The successful ingestion should have been reported to the successful ingestions queue");
 

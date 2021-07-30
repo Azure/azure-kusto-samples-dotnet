@@ -4,6 +4,7 @@ using Kusto.Data.Common;
 using Kusto.Data.Net.Client;
 using Kusto.Ingest;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -25,12 +26,12 @@ namespace StreamingIngestionSample
     class Program
     {
         private const string s_jsonMappingName = "TestJsonMapping";
-        private static readonly JsonColumnMapping [] s_jsonMapping = new JsonColumnMapping []
+        private static readonly ColumnMapping[] s_jsonMapping = new ColumnMapping[]
         {
-            new JsonColumnMapping { ColumnName = "Timestamp",  JsonPath = "$.EventTime",  TransformationMethod = (TransformationMethod) CsvFromJsonStream_TransformationMethod.None},
-            new JsonColumnMapping { ColumnName = "EventId",    JsonPath = "$.EventId",    TransformationMethod = (TransformationMethod) CsvFromJsonStream_TransformationMethod.None},
-            new JsonColumnMapping { ColumnName = "EventText",  JsonPath = "$.EventText",  TransformationMethod = (TransformationMethod) CsvFromJsonStream_TransformationMethod.None},
-            new JsonColumnMapping { ColumnName = "Properties", JsonPath = "$.Properties", TransformationMethod = (TransformationMethod) CsvFromJsonStream_TransformationMethod.None},
+            new ColumnMapping { ColumnName = "Timestamp",  Properties = new Dictionary<string, string>{ { MappingConsts.Path, "$.EventTime" },  { MappingConsts.TransformationMethod, CsvFromJsonStream_TransformationMethod.None.FastToString() } } },
+            new ColumnMapping { ColumnName = "EventId",    Properties = new Dictionary<string, string>{ { MappingConsts.Path, "$.EventId" },    { MappingConsts.TransformationMethod, CsvFromJsonStream_TransformationMethod.None.FastToString() } } },
+            new ColumnMapping { ColumnName = "EventText",  Properties = new Dictionary<string, string>{ { MappingConsts.Path, "$.EventText" },  { MappingConsts.TransformationMethod, CsvFromJsonStream_TransformationMethod.None.FastToString() } } },
+            new ColumnMapping { ColumnName = "Properties", Properties = new Dictionary<string, string>{ { MappingConsts.Path, "$.Properties" }, { MappingConsts.TransformationMethod, CsvFromJsonStream_TransformationMethod.None.FastToString() } } },
         };
 
         static void Usage()
@@ -109,7 +110,12 @@ namespace StreamingIngestionSample
             {
                 using (var data = CreateSampleEventLogCsvStream(10))
                 {
-                    siClient.ExecuteStreamIngest(database, table, data);
+                    siClient.ExecuteStreamIngestAsync(
+                        database,
+                        table,
+                        data,
+                        null,
+                        DataSourceFormat.csv);
                 }
 
                 using (var data = CreateSampleEventLogJsonStream(10))
@@ -143,7 +149,7 @@ namespace StreamingIngestionSample
                     var ingestProperties = new KustoIngestionProperties(database, table)
                     {
                         Format = DataSourceFormat.json,
-                        JSONMappingReference = s_jsonMappingName
+                        IngestionMapping = new IngestionMapping { IngestionMappingKind = Kusto.Data.Ingestion.IngestionMappingKind.Json, IngestionMappingReference = s_jsonMappingName }
                     };
 
                     ingestClient.IngestFromStreamAsync(data, ingestProperties);
@@ -170,7 +176,7 @@ namespace StreamingIngestionSample
                     return;
                 }
 
-                var createMappingCommand = CslCommandGenerator.GenerateTableJsonMappingCreateCommand(tableName, s_jsonMappingName, s_jsonMapping);
+                var createMappingCommand = CslCommandGenerator.GenerateTableMappingCreateCommand(Kusto.Data.Ingestion.IngestionMappingKind.Json, tableName, s_jsonMappingName, s_jsonMapping);
                 adminClient.ExecuteControlCommand(databaseName, createMappingCommand);
             }
         }
