@@ -8,96 +8,160 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 
-namespace HowToDataIngestion
+/// <summary>
+/// Sample for performing Streaming Ingestion using Kusto Client Library
+/// IMPORTANT NOTE: Streaming Ingestion is in alpha phase and only enabled on specific clusters.
+/// This code will not work with most production/lab/ppe/dev clusters.
+/// </summary>
+/// <remarks>
+/// This sample assumes that the cluster has database name StreamTest0 with table EventLog
+/// The table has the following schema:
+/// .create table EventLog (Timestamp:datetime, EventId:long, EventText:string, Properties:dynamic)
+/// The code will create ingestion JSON mapping on the table (if one does not exist already)
+/// .create table EventLog ingestion json mapping 'TestJsonMapping'  '[{"column":"Timestamp","path":"$.EventTime","transform":0},{"column":"EventId","path":"$.EventId","transform":0},{"column":"EventText","path":"$.EventText","transform":0},{"column":"Properties","path":"$.Properties","transform":0}]'
+/// </remarks>
+namespace StreamingIngestionSample
 {
     class Program
     {
+        private const string s_jsonMappingName = "TestJsonMapping";
+        private static readonly ColumnMapping[] s_jsonMapping = new ColumnMapping[]
+        {
+            new ColumnMapping { ColumnName = "Timestamp",  Properties = new Dictionary<string, string>{ { MappingConsts.Path, "$.EventTime" },  { MappingConsts.TransformationMethod, CsvFromJsonStream_TransformationMethod.None.FastToString() } } },
+            new ColumnMapping { ColumnName = "EventId",    Properties = new Dictionary<string, string>{ { MappingConsts.Path, "$.EventId" },    { MappingConsts.TransformationMethod, CsvFromJsonStream_TransformationMethod.None.FastToString() } } },
+            new ColumnMapping { ColumnName = "EventText",  Properties = new Dictionary<string, string>{ { MappingConsts.Path, "$.EventText" },  { MappingConsts.TransformationMethod, CsvFromJsonStream_TransformationMethod.None.FastToString() } } },
+            new ColumnMapping { ColumnName = "Properties", Properties = new Dictionary<string, string>{ { MappingConsts.Path, "$.Properties" }, { MappingConsts.TransformationMethod, CsvFromJsonStream_TransformationMethod.None.FastToString() } } },
+        };
+
         static void Main(string[] args)
         {
-            var clusterName = "KustoLab";
-            var db = "KustoIngestClientDemo";
-            var table = "Table1";
-            var mappingName = "Table1_mapping_1";
-            var serviceNameAndRegion = "clusterNameAndRegion"; // For example, "mycluster.westus"
-            var authority = "AAD Tenant or name"; // For example, "microsoft.com"
+            var kcsb = new KustoConnectionStringBuilder();
+            kcsb.DataSource = "https://kustolab.kusto.windows.net";
+            kcsb.FederatedSecurity = true;
 
-            // Set up table
-            var kcsbEngine =
-                new KustoConnectionStringBuilder($"https://{serviceNameAndRegion}.kusto.windows.net").WithAadUserPromptAuthentication(authority: $"{authority}");
+            string databaseName = "StreamingIngestionSample";
+            string tableName = "EventLog";
 
-            using (var kustoAdminClient = KustoClientFactory.CreateCslAdminProvider(kcsbEngine))
+            CreateJsonMappingIfNotExists(kcsb, databaseName, tableName);
+
+            // Do ingestion using Kusto.Data client library 
+            using (var siClient = KustoClientFactory.CreateCslStreamIngestClient(kcsb))
             {
-                var columns = new List<Tuple<string, string>>()
+                using (var data = CreateSampleEventLogCsvStream(10))
                 {
-                    new Tuple<string, string>("Column1", "System.Int64"),
-                    new Tuple<string, string>("Column2", "System.DateTime"),
-                    new Tuple<string, string>("Column3", "System.String"),
-                };
-
-                var command = CslCommandGenerator.GenerateTableCreateCommand(table, columns);
-                kustoAdminClient.ExecuteControlCommand(databaseName: db, command: command);
-
-                // Set up mapping
-                var columnMappings = new List<JsonColumnMapping>();
-                columnMappings.Add(new JsonColumnMapping()
-                { ColumnName = "Column1", JsonPath = "$.Id" });
-                columnMappings.Add(new JsonColumnMapping()
-                { ColumnName = "Column2", JsonPath = "$.Timestamp" });
-                columnMappings.Add(new JsonColumnMapping()
-                { ColumnName = "Column3", JsonPath = "$.Message" });
-
-                command = CslCommandGenerator.GenerateTableJsonMappingCreateCommand(
-                                                    table, mappingName, columnMappings);
-                kustoAdminClient.ExecuteControlCommand(databaseName: db, command: command);
-            }
-
-            // Create Ingest Client
-            var kcsbDM =
-                new KustoConnectionStringBuilder($"https://ingest-{serviceNameAndRegion}.kusto.windows.net").WithAadUserPromptAuthentication(authority: $"{authority}");
-
-            using (var ingestClient = KustoIngestFactory.CreateQueuedIngestClient(kcsbDM))
-            {
-                var ingestProps = new KustoQueuedIngestionProperties(db, table);
-                // For the sake of getting both failure and success notifications we set this to IngestionReportLevel.FailuresAndSuccesses
-                // Usually the recommended level is IngestionReportLevel.FailuresOnly
-                ingestProps.ReportLevel = IngestionReportLevel.FailuresAndSuccesses;
-                ingestProps.ReportMethod = IngestionReportMethod.Queue;
-                // Setting FlushImmediately to 'true' overrides any aggregation preceding the ingestion.
-                // Not recommended unless you are certain you know what you are doing
-                ingestProps.FlushImmediately = true;
-                ingestProps.JSONMappingReference = mappingName;
-                ingestProps.Format = DataSourceFormat.json;
-
-                // Prepare data for ingestion
-                using (var memStream = new MemoryStream())
-                using (var writer = new StreamWriter(memStream))
-                {
-                    for (int counter = 1; counter <= 10; ++counter)
-                    {
-                        writer.WriteLine(
-                            "{{ \"Id\":\"{0}\", \"Timestamp\":\"{1}\", \"Message\":\"{2}\" }}",
-                            counter, DateTime.UtcNow.AddSeconds(100 * counter),
-                            $"This is a dummy message number {counter}");
-                    }
-
-                    writer.Flush();
-                    memStream.Seek(0, SeekOrigin.Begin);
-
-                    // Post ingestion message
-                    var res = ingestClient.IngestFromStreamAsync(memStream, ingestProps, leaveOpen: true);
+                    siClient.ExecuteStreamIngestAsync(
+                        databaseName,
+                        tableName,
+                        data,
+                        null,
+                        DataSourceFormat.csv);
                 }
 
-                // Wait a bit (20s) and retrieve all notifications:
-                Thread.Sleep(20000);
-                var errors = ingestClient.GetAndDiscardTopIngestionFailures().GetAwaiter().GetResult();
-                var successes = ingestClient.GetAndDiscardTopIngestionSuccesses().GetAwaiter().GetResult();
-
-                errors.ForEach((f) => { Console.WriteLine($"Ingestion error: {f.Info.Details}"); });
-                successes.ForEach((s) => { Console.WriteLine($"Ingested: {s.Info.IngestionSourcePath}"); });
+                using (var data = CreateSampleEventLogJsonStream(10))
+                {
+                    siClient.ExecuteStreamIngestAsync(
+                        databaseName,
+                        tableName,
+                        data,
+                        null,
+                        DataSourceFormat.json,
+                        compressStream: false,
+                        mappingName: s_jsonMappingName).ResultEx();
+                }
             }
+
+            // Do ingestion using Kusto.Ingest client library. The data still goes directly to the engine cluster
+            // Just a convenience for applications already using IKustoIngest interface
+            using (var ingestClient = KustoIngestFactory.CreateStreamingIngestClient(kcsb))
+            {
+                using (var data = CreateSampleEventLogCsvStream(10))
+                {
+                    var ingestProperties = new KustoIngestionProperties(databaseName, tableName)
+                    {
+                        Format = DataSourceFormat.csv,
+                    };
+                    ingestClient.IngestFromStreamAsync(data, ingestProperties).ResultEx();
+                }
+
+                using (var data = CreateSampleEventLogJsonStream(10))
+                {
+                    var ingestProperties = new KustoIngestionProperties(databaseName, tableName)
+                    {
+                        Format = DataSourceFormat.json,
+                        IngestionMapping = new IngestionMapping { IngestionMappingKind = Kusto.Data.Ingestion.IngestionMappingKind.Json, IngestionMappingReference = s_jsonMappingName }
+                    };
+
+                    ingestClient.IngestFromStream(data, ingestProperties);
+                }
+
+            }
+        }
+
+        /// <summary>
+        /// Check table for existense of JSON mapping and create one if necessary
+        /// </summary>
+        /// <param name="kcsb">KustoConnectionStringBuilder object configured to connect to the cluster</param>
+        /// <param name="databaseName">Name of the database</param>
+        /// <param name="tableName">Name of the table</param>
+        static void CreateJsonMappingIfNotExists(KustoConnectionStringBuilder kcsb, string databaseName, string tableName)
+        {
+            using (var adminClient = KustoClientFactory.CreateCslAdminProvider(kcsb))
+            {
+                var showMappingsCommand = CslCommandGenerator.GenerateTableJsonMappingsShowCommand(tableName);
+                var existingMappings = adminClient.ExecuteControlCommand<IngestionMappingShowCommandResult>(databaseName, showMappingsCommand);
+
+                if (existingMappings.FirstOrDefault(m => String.Equals(m.Name, s_jsonMappingName, StringComparison.Ordinal)) != null)
+                {
+                    return;
+                }
+
+                var createMappingCommand = CslCommandGenerator.GenerateTableMappingCreateCommand(Kusto.Data.Ingestion.IngestionMappingKind.Json, tableName, s_jsonMappingName, s_jsonMapping);
+                adminClient.ExecuteControlCommand(databaseName, createMappingCommand);
+            }
+        }
+        /// <summary>
+        /// Create sample data formatted as CSV
+        /// </summary>
+        /// <param name="numberOfRecords">Number of records to create</param>
+        /// <returns>Stream (positioned at the beginning)</returns>
+        /// <remarks>
+        /// See main file comment for data schema
+        /// </remarks>
+        private static Stream CreateSampleEventLogCsvStream(int numberOfRecords)
+        {
+            var ms = new MemoryStream();
+            using (var tw = new StreamWriter(ms, Encoding.UTF8, 4096, true))
+            {
+                for (int i = 0; i < numberOfRecords; i++)
+                {
+                    tw.WriteLine("{0},{1},{2},{3}", DateTime.Now, i, "Sample event text", "\"{'Prop1':1, 'Prop2': 'Text'}\"");
+                }
+            }
+            ms.Seek(0, SeekOrigin.Begin);
+            return ms;
+        }
+
+        /// <summary>
+        /// Create sample data formatted as JSON
+        /// </summary>
+        /// <param name="numberOfRecords">Number of records to create</param>
+        /// <returns>Stream (positioned at the beginning)</returns>
+        /// <remarks>
+        /// See main file comment for schema in JSON mapping
+        /// </remarks>
+        private static Stream CreateSampleEventLogJsonStream(int numberOfRecords)
+        {
+            var ms = new MemoryStream();
+            using (var tw = new StreamWriter(ms, Encoding.UTF8, 4096, true))
+            {
+                for (int i = 0; i < numberOfRecords; i++)
+                {
+                    tw.WriteLine("{{'EventTime':'{0}','EventId':{1},'EventText':'{2}','Properties':{3}}}", DateTime.Now, i, "Sample event text", "{'Prop1':1, 'Prop2': 'Text'}");
+                }
+            }
+            ms.Seek(0, SeekOrigin.Begin);
+            return ms;
         }
     }
 }
