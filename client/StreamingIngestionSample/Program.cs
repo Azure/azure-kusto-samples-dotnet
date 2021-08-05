@@ -115,7 +115,7 @@ namespace StreamingIngestionSample
                         table,
                         data,
                         null,
-                        DataSourceFormat.csv);
+                        DataSourceFormat.csv).GetAwaiter().GetResult(); // In real code use await in async method
                 }
 
                 using (var data = CreateSampleEventLogJsonStream(10))
@@ -127,7 +127,7 @@ namespace StreamingIngestionSample
                         null, 
                         Kusto.Data.Common.DataSourceFormat.json, 
                         compressStream: false,
-                        mappingName: s_jsonMappingName);
+                        mappingName: s_jsonMappingName).GetAwaiter().GetResult(); // In real code use await in async method
                 }
             }
 
@@ -141,7 +141,7 @@ namespace StreamingIngestionSample
                     {
                         Format = DataSourceFormat.csv,
                     };
-                    ingestClient.IngestFromStreamAsync(data, ingestProperties);
+                    ingestClient.IngestFromStreamAsync(data, ingestProperties).GetAwaiter().GetResult(); // In real code use await in async method
                 }
 
                 using (var data = CreateSampleEventLogJsonStream(10))
@@ -152,7 +152,7 @@ namespace StreamingIngestionSample
                         IngestionMapping = new IngestionMapping { IngestionMappingKind = Kusto.Data.Ingestion.IngestionMappingKind.Json, IngestionMappingReference = s_jsonMappingName }
                     };
 
-                    ingestClient.IngestFromStreamAsync(data, ingestProperties);
+                    ingestClient.IngestFromStreamAsync(data, ingestProperties).GetAwaiter().GetResult(); // In real code use await in async method
                 }
 
             }
