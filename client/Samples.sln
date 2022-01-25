@@ -23,6 +23,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HowToDataIngestion", "HowTo
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DatabaseCursorSample", "DatabaseCursorSample\DatabaseCursorSample.csproj", "{07153E5B-A3B0-4F1B-B40A-69D2877CAB90}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HelloKustoV2", "HelloKustoV2\HelloKustoV2.csproj", "{D9937B3F-88B2-430F-87D7-D86B911A0F49}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -69,6 +71,10 @@ Global
 		{07153E5B-A3B0-4F1B-B40A-69D2877CAB90}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{07153E5B-A3B0-4F1B-B40A-69D2877CAB90}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{07153E5B-A3B0-4F1B-B40A-69D2877CAB90}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D9937B3F-88B2-430F-87D7-D86B911A0F49}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D9937B3F-88B2-430F-87D7-D86B911A0F49}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D9937B3F-88B2-430F-87D7-D86B911A0F49}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D9937B3F-88B2-430F-87D7-D86B911A0F49}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
