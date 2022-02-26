@@ -10,7 +10,9 @@ using System.Linq;
 using System.Text;
 
 /// <summary>
-/// Sample for performing Streaming Ingestion using Kusto Client Library
+/// Sample for performing Managed Streaming Ingestion using Kusto Client Library
+/// Managed Streaming Ingestion tries to ingest via streaming, but if it fails transiently, it will fall back to queued ingestion.
+/// 
 /// This code will not work with most production/lab/ppe/dev clusters.
 /// Streaming policies must be enabled on the cluster.
 /// </summary>
@@ -21,11 +23,11 @@ using System.Text;
 /// The code will create ingestion JSON mapping on the table (if one does not exist already)
 /// .create table EventLog ingestion json mapping 'TestJsonMapping'  '[{"column":"Timestamp","path":"$.EventTime","transform":0},{"column":"EventId","path":"$.EventId","transform":0},{"column":"EventText","path":"$.EventText","transform":0},{"column":"Properties","path":"$.Properties","transform":0}]'
 /// </remarks>
-namespace StreamingIngestionSample
+namespace ManagedStreamingIngestionSample
 {
     class Program
     {
-        private const string s_jsonMappingName = "TestJsonMapping";
+        private const string s_jsonMappingName = "TestJsonMapping2";
         private static readonly ColumnMapping[] s_jsonMapping = new ColumnMapping[]
         {
             new ColumnMapping { ColumnName = "Timestamp",  Properties = new Dictionary<string, string>{ { MappingConsts.Path, "$.EventTime" },  { MappingConsts.TransformationMethod, CsvFromJsonStream_TransformationMethod.None.FastToString() } } },
@@ -96,44 +98,24 @@ namespace StreamingIngestionSample
                 return;
             }
 
-            var kcsb = new KustoConnectionStringBuilder
+            var engineKcsb = new KustoConnectionStringBuilder
             {
                 DataSource = cluster
             };
 
-            kcsb = kcsb.WithAadUserPromptAuthentication();
-
-            CreateJsonMappingIfNotExists(kcsb, database, table);
-
-            // Do ingestion using Kusto.Data client library 
-            using (var siClient = KustoClientFactory.CreateCslStreamIngestClient(kcsb))
+            engineKcsb = engineKcsb.WithAadUserPromptAuthentication();
+            
+            // Usually the dm connection is the same as the engine connection with ingest- at the start. If this doesn't apply to your cluster, you can change it.
+            var dmKcsb = new KustoConnectionStringBuilder
             {
-                using (var data = CreateSampleEventLogCsvStream(10))
-                {
-                    siClient.ExecuteStreamIngestAsync(
-                        database,
-                        table,
-                        data,
-                        null,
-                        DataSourceFormat.csv).GetAwaiter().GetResult(); // In real code use await in async method
-                }
+                DataSource = cluster.Replace("https://", "https://ingest-")
+            };
 
-                using (var data = CreateSampleEventLogJsonStream(10))
-                {
-                    siClient.ExecuteStreamIngestAsync(
-                        database, 
-                        table, 
-                        data, 
-                        null, 
-                        Kusto.Data.Common.DataSourceFormat.json, 
-                        compressStream: false,
-                        mappingName: s_jsonMappingName).GetAwaiter().GetResult(); // In real code use await in async method
-                }
-            }
+            dmKcsb = dmKcsb.WithAadUserPromptAuthentication();
 
-            // Do ingestion using Kusto.Ingest client library. The data still goes directly to the engine cluster
-            // Just a convenience for applications already using IKustoIngest interface
-            using (var ingestClient = KustoIngestFactory.CreateStreamingIngestClient(kcsb))
+            CreateJsonMappingIfNotExists(engineKcsb, database, table);
+
+            using (var ingestClient = KustoIngestFactory.CreateManagedStreamingIngestClient(engineKcsb, dmKcsb))
             {
                 using (var data = CreateSampleEventLogCsvStream(10))
                 {
