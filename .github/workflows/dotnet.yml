@@ -22,9 +22,16 @@ jobs:
     - name: Navigate to Workspace
       run: cd $GITHUB_WORKSPACE
 
-    - name: Restore Packages
+    - name: Restore Packages - client
       run: nuget restore client\Samples.sln
 
-    - name: Build Solution
+    - name: Build Solution - client
       run: |
         msbuild.exe client\Samples.sln /p:configuration="Release"
+
+    - name: Restore Packages - kafka
+      run: nuget restore kafka\KafkaSampleData.sln
+
+    - name: Build Solution - kafka
+      run: |
+        msbuild.exe kafka\KafkaSampleData.sln /p:configuration="Release"
