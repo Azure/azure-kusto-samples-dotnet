@@ -38,11 +38,10 @@ namespace QueuedIngestFromLocalFileReportToTableExample
 
             var filePath = @"< Path to file >";
             var fileIdentifier = Guid.NewGuid();
-            var fileDescription = new FileDescription() { FilePath = filePath, SourceId = fileIdentifier };
-            var sourceOptions = new StorageSourceOptions() { SourceId = fileDescription.SourceId.Value };
+            var sourceOptions = new StorageSourceOptions() { SourceId = fileIdentifier };
 
             // Execute the ingest operation and save the result.
-            var clientResult = await client.IngestFromStorageAsync(fileDescription.FilePath,
+            var clientResult = await client.IngestFromStorageAsync(filePath,
                 ingestionProperties: kustoIngestionProperties, sourceOptions);
 
             // Use the fileIdentifier you supplied to get the status of your ingestion 
