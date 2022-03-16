@@ -23,7 +23,7 @@ jobs:
       run: cd $GITHUB_WORKSPACE
 
     - name: Restore Packages
-      run: nuget restore Sandbox.sln
+      run: nuget restore client\Samples.sln
 
     - name: Build Solution
       run: |
