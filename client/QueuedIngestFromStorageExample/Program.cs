@@ -36,7 +36,7 @@ namespace QueuedIngestFromStorageExample
             IRetryPolicy retryPolicy = new NoRetry();
             
             // This line sets the retry policy on the ingest client that will be enforced on every ingest call from here on
-            ((IKustoQueuedIngestClient)client).QueuePostRequestOptions.RetryPolicy = retryPolicy;
+            ((IKustoQueuedIngestClient)client).QueueOptions.QueueRequestOptions.RetryPolicy = retryPolicy;
 
             await client.IngestFromStorageAsync(uri: @"BLOB-URI-WITH-SAS-KEY", ingestionProperties: kustoIngestionProperties, sourceOptions);
 
