@@ -28,6 +28,8 @@ EndProject
 
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ManagedStreamingIngestionSample", "ManagedStreamingIngestionSample\ManagedStreamingIngestionSample.csproj", "{63F38CC7-E9EA-4B48-886A-843C116680DF}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "QuickStart", "QuickStart\QuickStart.csproj", "{03454B77-F58C-4934-8C97-F774F98EC7B0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -78,6 +80,10 @@ Global
 		{D9937B3F-88B2-430F-87D7-D86B911A0F49}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D9937B3F-88B2-430F-87D7-D86B911A0F49}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D9937B3F-88B2-430F-87D7-D86B911A0F49}.Release|Any CPU.Build.0 = Release|Any CPU
+		{03454B77-F58C-4934-8C97-F774F98EC7B0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{03454B77-F58C-4934-8C97-F774F98EC7B0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{03454B77-F58C-4934-8C97-F774F98EC7B0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{03454B77-F58C-4934-8C97-F774F98EC7B0}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
