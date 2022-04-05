@@ -2,9 +2,10 @@
 using Kusto.Data;
 using Kusto.Data.Common;
 using Kusto.Data.Net.Client;
-using Kusto.Data.Exceptions;
 using Kusto.Ingest;
 using Newtonsoft.Json;
+using DataTablePrettyPrinter;
+using Kusto.Cloud.Platform.Data;
 
 namespace QuickStart
 {
@@ -13,23 +14,23 @@ namespace QuickStart
     /// </summary>
     public class ConfigJson
     {
-        public bool UseExistingTable { get; set; }
+        public bool? UseExistingTable { get; set; } = null;
         public string? DatabaseName { get; set; } = null;
         public string? TableName { get; set; } = null;
         public string? TableSchema { get; set; } = null;
-        public string? KustoUrl { get; set; } = null;
-        public string? IngestUrl { get; set; } = null;
+        public string? KustoUri { get; set; } = null;
+        public string? IngestUri { get; set; } = null;
         public List<Dictionary<string, string>>? Data = null;
-        public bool AlterTable { get; set; }
-        public bool QueryData { get; set; }
-        public bool IngestData { get; set; }
+        public bool? AlterTable { get; set; } = null;
+        public bool? QueryData { get; set; } = null;
+        public bool? IngestData { get; set; } = null;
     }
 
 
     /// <summary>
     /// 
     /// </summary>
-    public class KustoSampleApp
+    public static class KustoSampleApp
     {
         // TODO (config - optional): Change the authentication method from "User Prompt" to any of the other options
         //  Some of the auth modes require additional environment variables to be set in order to work (see usage in generate_connection_string below)
@@ -52,7 +53,7 @@ namespace QuickStart
         private const string ErrorMsg = "Script failed with error: ";
         private const string ExceptionMsg = "Exception: ";
         private const string StartMsg = "Kusto sample app is starting...";
-        private const string EndMsg = "Kusto sample app done";
+        private const string EndMsg = "\nKusto sample app done";
         private const string MissingFieldsError = "File '{0}' is missing required fields";
         private const string ConfigFileError = "Couldn't read config file: '{0}'";
         private const string UpcomingOperationPrompt = "\nStep {0}: {1}";
@@ -92,8 +93,9 @@ namespace QuickStart
         private const string UnknownControlCmdError =
             "Unknown error while trying to execute control command '{0}' on database '{1}'";
 
-        private const string AmountOfRecordsPrompt = "There are {0} records in the table";
-        private const string ControlCmdResponse = "Response from executed control command '{0}':";
+        private const string AmountOfRecordsPrompt = "There are {0} records in the respnse table";
+        private const string ControlCmdResponse = "Response from executed control command '{0}':\n--------------------";
+        private const string QueryResponse = "Response from executed query '{0}':\n--------------------";
         private const string ControlCmdScope = "Python_SampleApp_ControlCommand";
         private const string QueryScope = "Python_SampleApp_Query";
         private static int _step = 1;
@@ -102,15 +104,15 @@ namespace QuickStart
         /// <summary>
         /// Main engine - runs the actual script. 
         /// </summary>
-        private void Start()
+        private static void Start()
         {
             var config = LoadConfigs(ConfigFileName);
 
             if (AuthenticationMode == "UserPrompt")
                 WaitForUserToProceed(AuthenticationPrompt);
 
-            var kustoConnectionString = GenerateConnectionString(config?.KustoUrl, AuthenticationMode);
-            var ingestConnectionString = GenerateConnectionString(config?.IngestUrl, AuthenticationMode);
+            var kustoConnectionString = GenerateConnectionString(config?.KustoUri, AuthenticationMode);
+            var ingestConnectionString = GenerateConnectionString(config?.IngestUri, AuthenticationMode);
 
             //Tip: Avoid creating a new Kusto/ingest client for each use.Instead,create the clients once and reuse them.
             var adminClient = KustoClientFactory.CreateCslAdminProvider(kustoConnectionString);
@@ -147,7 +149,8 @@ namespace QuickStart
         /// <param name="authenticationMode">User Authentication Mode, 
         ///                                  Options: (UserPrompt|ManagedIdentity|AppKey|AppCertificate)</param>
         /// <returns>A connection string to be used when creating a Client</returns>
-        private KustoConnectionStringBuilder? GenerateConnectionString(string? clusterUrl, string authenticationMode)
+        private static KustoConnectionStringBuilder? GenerateConnectionString(string? clusterUrl,
+            string authenticationMode)
         {
             //Learn More: For additional information on how to authorize users and apps in Kusto see:
             //https://docs.microsoft.com/azure/data-explorer/manage-database-permissions
@@ -185,7 +188,7 @@ namespace QuickStart
         /// </summary>
         /// <param name="clusterUrl"></param>
         /// <returns>ManagedIdentity Kusto Connection String</returns>
-        private KustoConnectionStringBuilder CreateManagedIdentityConnectionString(string? clusterUrl)
+        private static KustoConnectionStringBuilder CreateManagedIdentityConnectionString(string? clusterUrl)
         {
             //Connect using the system - or user-assigned managed identity (Azure service only)
             // TODO (config - optional): Managed identity client ID if you are using a user-assigned managed identity
@@ -205,8 +208,8 @@ namespace QuickStart
         /// <param name="configDatabaseName">DB name</param>
         /// <param name="configTableName">Table name</param>
         /// <param name="configTableSchema">Table Schema</param>
-        private void AlterMergeExistingTableToProvidedSchema(ICslAdminProvider adminClient, string? configDatabaseName,
-            string? configTableName, string? configTableSchema)
+        private static void AlterMergeExistingTableToProvidedSchema(ICslAdminProvider adminClient,
+            string? configDatabaseName, string? configTableName, string? configTableSchema)
         {
             WaitForUserToProceed(string.Format(AlterMergePrompt, configDatabaseName, configTableName));
             var command = string.Format(AlterMergeCmd, configTableName, configTableSchema);
@@ -220,7 +223,7 @@ namespace QuickStart
         /// <param name="queryClient">Client to run queries</param>
         /// <param name="configDatabaseName">DB name</param>
         /// <param name="configTableName">Table name</param>
-        private void QueryExistingNumberOfRows(ICslQueryProvider queryClient, string? configDatabaseName,
+        private static void QueryExistingNumberOfRows(ICslQueryProvider queryClient, string? configDatabaseName,
             string? configTableName)
         {
             WaitForUserToProceed(string.Format(ExistingNumberOfRowsPrompt, configDatabaseName, configTableName));
@@ -237,7 +240,8 @@ namespace QuickStart
         /// <param name="configDatabaseName">DB name</param>
         /// <param name="configTableName">Table name</param>
         /// <param name="configTableSchema">Table Schema</param>
-        private void CreateNewTable(ICslAdminProvider adminClient, string? configDatabaseName, string? configTableName,
+        private static void CreateNewTable(ICslAdminProvider adminClient, string? configDatabaseName,
+            string? configTableName,
             string? configTableSchema)
         {
             WaitForUserToProceed(string.Format(CreateNewTablePrompt, configDatabaseName, configTableName));
@@ -267,7 +271,7 @@ namespace QuickStart
         /// <param name="adminClient">Privileged client to run Control Commands</param>
         /// <param name="configDatabaseName">DB name</param>
         /// <param name="configTableName">Table name</param>
-        private void AlterBatchingPolicy(ICslAdminProvider adminClient, string? configDatabaseName,
+        private static void AlterBatchingPolicy(ICslAdminProvider adminClient, string? configDatabaseName,
             string? configTableName)
         {
             // Tip 1: Though most users should be fine with the defaults, to speed up ingestion, such as during
@@ -291,25 +295,23 @@ namespace QuickStart
         /// <param name="configDatabaseName">DB name</param>
         /// <param name="command">The Control Command</param>
         /// <returns>True on success, false otherwise</returns>
-        private bool ExecuteControlCommand(ICslAdminProvider adminClient, string? configDatabaseName, string command)
+        private static bool ExecuteControlCommand(ICslAdminProvider adminClient, string? configDatabaseName,
+            string command)
         {
             try
             {
                 var clientRequestProperties = CreateClientRequestProperties(ControlCmdScope);
-                using var result = adminClient
+                var result = adminClient
                     .ExecuteControlCommandAsync(configDatabaseName, command, clientRequestProperties)
-                    .GetAwaiter().GetResult();
+                    .GetAwaiter().GetResult().ToJObjects().ToArray(); // In real code use await in async method
 
                 // Tip: Actual implementations wouldn't generally print the response from a control command.
-                // We print here to demonstrate what the response looks like.
+                // We print here to demonstrate what a sample of the response looks like.
                 Console.WriteLine(string.Format(ControlCmdResponse, command));
-                var schemaTable = result.GetSchemaTable();
-                foreach (DataRow row in schemaTable.Rows)
-                {
-                    foreach (DataColumn column in schemaTable.Columns)
-                        Console.WriteLine($"{column.ColumnName} = {row[column]}");
-                }
-
+                var firstRow = result[0];
+                foreach (var item in firstRow.Properties())
+                    Console.WriteLine(item);
+                
                 return true;
             }
 
@@ -335,32 +337,20 @@ namespace QuickStart
         /// <param name="configDatabaseName">DB name</param>
         /// <param name="query">The query</param>
         /// <returns>True on success, false otherwise</returns>
-        private bool ExecuteQuery(ICslQueryProvider queryClient, string? configDatabaseName, string query)
+        private static bool ExecuteQuery(ICslQueryProvider queryClient, string? configDatabaseName, string query)
         {
             try
             {
                 var clientRequestProperties = CreateClientRequestProperties(QueryScope);
-                using var result = queryClient.ExecuteQueryAsync(configDatabaseName, query, clientRequestProperties)
-                    .GetAwaiter().GetResult();
+                var result = queryClient.ExecuteQueryAsync(configDatabaseName, query, clientRequestProperties)
+                    .GetAwaiter().GetResult().ToJObjects().ToArray(); // In real code use await in async method
 
-                // Print how many records were read
-                while (result.Read())
-                    Console.WriteLine(string.Format(AmountOfRecordsPrompt, result.GetInt64(0)));
-
-                // Move on to the next result set, SampleRecords
-                result.NextResult();
-                Console.WriteLine();
-                while (result.Read())
-                {
-                    // Important note: For demonstration purposes we show how to read the data
-                    // using the "bare bones" IDataReader interface. In a production environment
-                    // one would normally use some ORM library to automatically map the data from
-                    // IDataReader into a strongly-typed record type (e.g. Dapper.Net, AutoMapper, etc.)
-                    var time = result.GetDateTime(0);
-                    var type = result.GetString(1);
-                    var state = result.GetString(2);
-                    Console.WriteLine("{0}\t{1,-20}\t{2}", time, type, state);
-                }
+                // Tip: Actual implementations wouldn't generally print the response from a query.
+                // We print here to demonstrate what a sample of the response looks like.
+                Console.WriteLine(string.Format(QueryResponse, query));
+                var firstRow = result[0];
+                foreach (var item in firstRow.Properties())
+                    Console.WriteLine(item);
 
                 return true;
             }
@@ -387,7 +377,7 @@ namespace QuickStart
         /// <param name="scope">Working scope</param>
         /// <param name="timeout">Requests default timeout</param>
         /// <returns>ClientRequestProperties object</returns>
-        private ClientRequestProperties CreateClientRequestProperties(string scope, string? timeout = null)
+        private static ClientRequestProperties CreateClientRequestProperties(string scope, string? timeout = null)
         {
             var clientRequestProperties = new ClientRequestProperties
             {
@@ -409,7 +399,7 @@ namespace QuickStart
         /// Handles UX on prompts and flow of program 
         /// </summary>
         /// <param name="promptMsg"> Prompt to display to user.</param>
-        private void WaitForUserToProceed(string promptMsg)
+        private static void WaitForUserToProceed(string promptMsg)
         {
             Console.WriteLine(string.Format(UpcomingOperationPrompt, _step, promptMsg));
             _step++;
@@ -426,7 +416,7 @@ namespace QuickStart
         /// </summary>
         /// <param name="configFilePath"> Configuration file path.</param>
         /// <returns>ConfigJson object, allowing access to the metadata fields.</returns>
-        private ConfigJson? LoadConfigs(string configFilePath)
+        private static ConfigJson? LoadConfigs(string configFilePath)
         {
             try
             {
@@ -436,7 +426,7 @@ namespace QuickStart
 
                 // TODO: can be implemented with Any?
                 if (config.DatabaseName is null || config.TableName is null || config.TableSchema is null ||
-                    config.KustoUrl is null || config.IngestUrl is null || config.Data is null)
+                    config.KustoUri is null || config.IngestUri is null || config.Data is null)
                     ErrorHandler(string.Format(MissingFieldsError, configFilePath));
 
                 return config;
@@ -457,7 +447,7 @@ namespace QuickStart
         /// </summary>
         /// <param name="error">Appropriate error message received from calling function</param>
         /// <param name="e">Thrown exception</param>
-        private void ErrorHandler(string error, Exception? e = null)
+        private static void ErrorHandler(string error, Exception? e = null)
         {
             Console.WriteLine(ErrorMsg + error);
             if (e is not null)
@@ -470,7 +460,7 @@ namespace QuickStart
         public static void Main()
         {
             Console.WriteLine(StartMsg);
-            new KustoSampleApp().Start();
+            Start();
             Console.WriteLine(EndMsg);
         }
     }
