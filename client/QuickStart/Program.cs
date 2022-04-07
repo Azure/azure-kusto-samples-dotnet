@@ -1,11 +1,10 @@
-﻿using System.Data;
-using Kusto.Data;
+﻿using Kusto.Data;
 using Kusto.Data.Common;
 using Kusto.Data.Net.Client;
 using Kusto.Ingest;
 using Newtonsoft.Json;
-using DataTablePrettyPrinter;
 using Kusto.Cloud.Platform.Data;
+using ShellProgressBar;
 
 namespace QuickStart
 {
@@ -20,7 +19,7 @@ namespace QuickStart
         public string? TableSchema { get; set; } = null;
         public string? KustoUri { get; set; } = null;
         public string? IngestUri { get; set; } = null;
-        public List<Dictionary<string, string>>? Data = null;
+        public List<Dictionary<string, string?>>? Data = null;
         public bool? AlterTable { get; set; } = null;
         public bool? QueryData { get; set; } = null;
         public bool? IngestData { get; set; } = null;
@@ -33,7 +32,8 @@ namespace QuickStart
     public static class KustoSampleApp
     {
         // TODO (config - optional): Change the authentication method from "User Prompt" to any of the other options
-        //  Some of the auth modes require additional environment variables to be set in order to work (see usage in generate_connection_string below)
+        //  Some of the auth modes require additional environment variables to be set in order to work
+        // (see usage in generate_connection_string below).
         //  Managed Identity Authentication only works when running as an Azure service (webapp, function, etc.)
         private const string
             AuthenticationMode = "UserPrompt"; // Options: (UserPrompt|ManagedIdentity|AppKey|AppCertificate)
@@ -42,8 +42,10 @@ namespace QuickStart
         private const bool WaitForUser = true;
 
         // TODO (config):
-        // If this quickstart app was downloaded from OneClick, kusto_sample_config.json should be pre-populated with your cluster's details
-        // If this quickstart app was downloaded from GitHub, edit kusto_sample_config.json and modify the cluster URL and database fields appropriately
+        // If this quickstart app was downloaded from OneClick, kusto_sample_config.json should be pre-populated
+        // with your cluster's details.
+        // If this quickstart app was downloaded from GitHub, edit kusto_sample_config.json and modify the cluster URL
+        // and database fields appropriately.
         private const string ConfigFileName = @"kusto_sample_config.json";
         private const int WaitForIngestSeconds = 20;
 
@@ -79,10 +81,12 @@ namespace QuickStart
         private const string AlterBatchingCmd = ".alter table {0} policy ingestionbatching @'{1}'";
 
         private const string AlterBatchingError =
-            "Failed to alter the ingestion policy, which could be the result of insufficient permissions. The sample will still run, though ingestion will be delayed for up to 5 minutes.";
+            "Failed to alter the ingestion policy, which could be the result of insufficient permissions. The sample " +
+            "will still run, though ingestion will be delayed for up to 5 minutes.";
 
         private const string AuthenticationPrompt =
-            "You will be prompted *twice* for credentials during this script. Please return to the console after authenticating.";
+            "You will be prompted *twice* for credentials during this script. Please return to the console after " +
+            "authenticating.";
 
         private const string ClientControlCmdError =
             "Client error while trying to execute control command '{0}' on database '{1}'";
@@ -93,18 +97,31 @@ namespace QuickStart
         private const string UnknownControlCmdError =
             "Unknown error while trying to execute control command '{0}' on database '{1}'";
 
-        private const string AmountOfRecordsPrompt = "There are {0} records in the respnse table";
         private const string ControlCmdResponse = "Response from executed control command '{0}':\n--------------------";
         private const string QueryResponse = "Response from executed query '{0}':\n--------------------";
         private const string ControlCmdScope = "Python_SampleApp_ControlCommand";
         private const string QueryScope = "Python_SampleApp_Query";
+        private const string IngestionMappingPrompt = "Create a '{0}' mapping reference named '{1}'";
+        private const string DefaultMappingName = "DefaultQuickstartMapping";
+        private const string IngestionMappingCommand = ".create-or-alter table {0} ingestion {1} mapping '{2}' '{3}'";
+
+        private const string IngestionMappingError =
+            "Failed to create a '{0}' mapping reference named '{1}'. Skipping this ingestion.";
+
+        private const string IngestUriPrompt = "Ingest '{0}' from '{1}'";
+        private const string IngestUriError = "Unknown source '{0}' for file '{1}'";
+
+        private const string IngestionSleepPrompt =
+            "Sleeping {0} seconds for queued ingestion to complete. Note: This may take longer depending on the file" +
+            " size and ingestion batching policy.";
+
         private static int _step = 1;
 
 
         /// <summary>
         /// Main engine - runs the actual script. 
         /// </summary>
-        private static void Start()
+        private static async Task Start()
         {
             var config = LoadConfigs(ConfigFileName);
 
@@ -126,8 +143,8 @@ namespace QuickStart
                     // so this wouldn't be needed.
                     // Learn More: For more information about altering table schemas, see:
                     // https://docs.microsoft.com/azure/data-explorer/kusto/management/alter-table-command
-                    AlterMergeExistingTableToProvidedSchema(adminClient, config.DatabaseName, config.TableName,
-                        config.TableSchema);
+                    AlterMergeExistingTableToProvidedSchema(adminClient, config.DatabaseName,
+                        config.TableName, config.TableSchema);
 
                 if (config is {QueryData: true})
                     // Learn More: For more information about Kusto Query Language (KQL), see:
@@ -139,6 +156,209 @@ namespace QuickStart
                 //Learn More: For more information about creating tables, see:
                 //https://docs.microsoft.com/azure/data-explorer/one-click-table
                 CreateNewTable(adminClient, config?.DatabaseName, config?.TableName, config?.TableSchema);
+
+            if (config is {IngestData: true})
+            {
+                foreach (var file in config.Data!)
+                {
+                    var dataFormat = (DataSourceFormat) Enum.Parse(typeof(DataSourceFormat),
+                        file["format"]!.ToLower());
+                    var mappingName = file["mappingName"];
+
+                    // Tip: This is generally a one-time configuration.
+                    // Learn More: For more information about providing inline mappings and mapping references,
+                    // see: https://docs.microsoft.com/azure/data-explorer/kusto/management/mappings
+                    if (!CreateIngestionMappings(
+                            bool.Parse(char.ToUpper(file["useExistingMapping"]![0]) +
+                                       file["useExistingMapping"]?[1..]), adminClient, config.DatabaseName,
+                            config.TableName, mappingName, file["mappingValue"], dataFormat))
+                        continue;
+
+                    // Learn More: For more information about ingesting data to Kusto in Python,
+                    // see: https://docs.microsoft.com/azure/data-explorer/python-ingest-data
+                    await Ingest(file, dataFormat, ingestClient, config.DatabaseName, config.TableName, mappingName);
+                }
+
+                WaitForIngestionToComplete();
+            }
+        }
+
+        
+        /// <summary>
+        /// Creates Ingestion Mappings (if required) based on given values.
+        /// </summary>
+        /// <param name="useExistingMapping">Flag noting if we should the existing mapping or create a new one</param>
+        /// <param name="adminClient">Privileged client to run Control Commands</param>
+        /// <param name="configDatabaseName">DB name</param>
+        /// <param name="configTableName">Table name</param>
+        /// <param name="mappingName">Desired mapping name</param>
+        /// <param name="mappingValue">Values of the new mappings to create</param>
+        /// <param name="dataFormat">Given data format</param>
+        /// <returns>True if Ingestion Mappings exists (whether by us, or the already existing one)</returns>
+        private static bool CreateIngestionMappings(bool useExistingMapping, ICslAdminProvider adminClient,
+            string? configDatabaseName, string? configTableName, string? mappingName, string? mappingValue,
+            DataSourceFormat dataFormat)
+        {
+            if (useExistingMapping || mappingValue is null)
+                return true;
+
+            var ingestionMappingKind = dataFormat.ToIngestionMappingKind().ToString().ToLower();
+            WaitForUserToProceed(string.Format(IngestionMappingPrompt, ingestionMappingKind, mappingName));
+
+            mappingName ??= DefaultMappingName + Guid.NewGuid().ToString()[..5];
+            var mappingCommand = string.Format(IngestionMappingCommand, configTableName, ingestionMappingKind,
+                mappingName, mappingValue);
+
+            if (!ExecuteControlCommand(adminClient, configDatabaseName, mappingCommand))
+                ErrorHandler(string.Format(IngestionMappingError, ingestionMappingKind, mappingName));
+
+            return true;
+        }
+
+        
+        /// <summary>
+        /// Ingest data from given source.
+        /// </summary>
+        /// <param name="file">Given data source</param>
+        /// <param name="dataFormat">Given data format</param>
+        /// <param name="ingestClient">Client to ingest data</param>
+        /// <param name="configDatabaseName">DB name</param>
+        /// <param name="configTableName">Table name</param>
+        /// <param name="mappingName">Desired mapping name</param>
+        private static async Task Ingest(Dictionary<string, string?> file, DataSourceFormat dataFormat,
+            IKustoIngestClient ingestClient, string? configDatabaseName, string? configTableName, string? mappingName)
+        {
+            var sourceType = file["sourceType"]?.ToLower();
+            var sourceUri = file["dataSourceUri"];
+            WaitForUserToProceed(string.Format(IngestUriPrompt, sourceUri, sourceType));
+
+            // Tip: When ingesting json files, if each line represents a single-line json, use MULTIJSON format even
+            // if the file only contains one line. If the json contains whitespace formatting, use SINGLEJSON.
+            // In this case, only one data row json object is allowed per file.
+            dataFormat = dataFormat == DataSourceFormat.json ? DataSourceFormat.multijson : dataFormat;
+
+            // Tip: Kusto's C# SDK can ingest data from files, blobs and open streams.
+            // See the SDK's samples and the E2E tests in azure.kusto.ingest for additional references.
+
+            switch (sourceType)
+            {
+                case "localfilesource":
+                    await IngestFromFile(ingestClient, configDatabaseName, configTableName, sourceUri, dataFormat,
+                        mappingName);
+                    break;
+                case "blobsource":
+                    await IngestFromBlob(ingestClient, configDatabaseName, configTableName, sourceUri, dataFormat,
+                        mappingName);
+                    break;
+                default:
+                    ErrorHandler(string.Format(IngestUriError, sourceType, sourceUri));
+                    break;
+            }
+        }
+
+        
+        /// <summary>
+        /// Ingest Data from a given file path.
+        /// </summary>
+        /// <param name="ingestClient">Client to ingest data</param>
+        /// <param name="configDatabaseName">DB name</param>
+        /// <param name="configTableName">Table name</param>
+        /// <param name="sourceUri">File path</param>
+        /// <param name="dataFormat">Given data format</param>
+        /// <param name="mappingName">Desired mapping name</param>
+        private static async Task IngestFromFile(IKustoIngestClient ingestClient, string? configDatabaseName,
+            string? configTableName, string? sourceUri, DataSourceFormat dataFormat, string? mappingName)
+        {
+            var ingestionProperties =
+                CreateIngestionProperties(configDatabaseName, configTableName, dataFormat, mappingName);
+
+            // Tip 1: For optimal ingestion batching and performance, specify the uncompressed data size in the
+            // file descriptor instead of the default below of 0. Otherwise, the service will determine the file size,
+            // requiring an additional s2s call, and may not be accurate for compressed files.
+            // Tip 2: To correlate between ingestion operations in your applications and Kusto, set the source ID
+            // and log it somewhere.
+            // Tip 3: To instruct the client to ingest a file (and not another source type), we can either provide it 
+            // with a path as the sourceUri, or use the IsLocalFileSystem = true flag.
+            var sourceOptions = new StorageSourceOptions()
+            {
+                Size = 0,
+                SourceId = Guid.NewGuid(),
+                IsLocalFileSystem = true
+            };
+
+            await ingestClient.IngestFromStorageAsync(sourceUri, ingestionProperties, sourceOptions);
+        }
+
+        
+        /// <summary>
+        /// Ingest Data from a Blob.
+        /// </summary>
+        /// <param name="ingestClient">Client to ingest data</param>
+        /// <param name="configDatabaseName">DB name</param>
+        /// <param name="configTableName">Table name</param>
+        /// <param name="sourceUri">Blob Uri</param>
+        /// <param name="dataFormat">Given data format</param>
+        /// <param name="mappingName">Desired mapping name</param>
+        private static async Task IngestFromBlob(IKustoIngestClient ingestClient, string? configDatabaseName,
+            string? configTableName, string? sourceUri, DataSourceFormat dataFormat, string? mappingName)
+        {
+            var ingestionProperties =
+                CreateIngestionProperties(configDatabaseName, configTableName, dataFormat, mappingName);
+
+            // Tip 1: For optimal ingestion batching and performance, specify the uncompressed data size in the
+            // file descriptor instead of the default below of 0. Otherwise, the service will determine the file size,
+            // requiring an additional s2s call, and may not be accurate for compressed files.
+            // Tip 2: To correlate between ingestion operations in your applications and Kusto, set the source ID
+            // and log it somewhere
+            var sourceOptions = new StorageSourceOptions() {Size = 0, SourceId = Guid.NewGuid()};
+            await ingestClient.IngestFromStorageAsync(sourceUri, ingestionProperties, sourceOptions);
+        }
+
+        
+        /// <summary>
+        /// Creates a fitting KustoIngestionProperties object, to be used when executing ingestion commands.
+        /// </summary>
+        /// <param name="configDatabaseName">DB name</param>
+        /// <param name="configTableName">Table name</param>
+        /// <param name="dataFormat">Given data format</param>
+        /// <param name="mappingName">Desired mapping name</param>
+        /// <returns>KustoIngestionProperties object</returns>
+        private static KustoIngestionProperties CreateIngestionProperties(string? configDatabaseName,
+            string? configTableName, DataSourceFormat dataFormat, string? mappingName)
+        {
+            var kustoIngestionProperties = new KustoIngestionProperties()
+            {
+                DatabaseName = configDatabaseName,
+                TableName = configTableName,
+                IngestionMapping = new IngestionMapping() {IngestionMappingReference = mappingName},
+                Format = dataFormat
+            };
+
+            return kustoIngestionProperties;
+        }
+
+
+        /// <summary>
+        /// Halts the program for WaitForIngestSeconds, allowing the queued ingestion process to complete.
+        /// </summary>
+        private static void WaitForIngestionToComplete()
+        {
+            Console.WriteLine(IngestionSleepPrompt, WaitForIngestSeconds);
+            Console.WriteLine();
+            Console.WriteLine();
+
+            var options = new ProgressBarOptions
+            {
+                ProgressCharacter = '#',
+                ProgressBarOnBottom = true,
+                ForegroundColor = ConsoleColor.White,
+            };
+            using var pbar = new ProgressBar(WaitForIngestSeconds * 2, "", options);
+            for (var i = WaitForIngestSeconds * 2; i >= 0; i--)
+            {
+                pbar.Tick();
+                Thread.Sleep(500);
+            }
         }
 
 
@@ -307,11 +527,11 @@ namespace QuickStart
 
                 // Tip: Actual implementations wouldn't generally print the response from a control command.
                 // We print here to demonstrate what a sample of the response looks like.
-                Console.WriteLine(string.Format(ControlCmdResponse, command));
+                Console.WriteLine(ControlCmdResponse, command);
                 var firstRow = result[0];
                 foreach (var item in firstRow.Properties())
                     Console.WriteLine(item);
-                
+
                 return true;
             }
 
@@ -324,7 +544,7 @@ namespace QuickStart
                     "KustoServiceException" => ServiceControlCmdError,
                     _ => UnknownControlCmdError
                 };
-                Console.WriteLine(string.Format(msg, command, configDatabaseName));
+                Console.WriteLine(msg, command, configDatabaseName);
             }
 
             return false;
@@ -347,7 +567,7 @@ namespace QuickStart
 
                 // Tip: Actual implementations wouldn't generally print the response from a query.
                 // We print here to demonstrate what a sample of the response looks like.
-                Console.WriteLine(string.Format(QueryResponse, query));
+                Console.WriteLine(QueryResponse, query);
                 var firstRow = result[0];
                 foreach (var item in firstRow.Properties())
                     Console.WriteLine(item);
@@ -364,7 +584,7 @@ namespace QuickStart
                     "KustoServiceException" => ServiceControlCmdError,
                     _ => UnknownControlCmdError
                 };
-                Console.WriteLine(string.Format(msg, query, configDatabaseName));
+                Console.WriteLine(msg, query, configDatabaseName);
             }
 
             return false;
@@ -401,7 +621,7 @@ namespace QuickStart
         /// <param name="promptMsg"> Prompt to display to user.</param>
         private static void WaitForUserToProceed(string promptMsg)
         {
-            Console.WriteLine(string.Format(UpcomingOperationPrompt, _step, promptMsg));
+            Console.WriteLine(UpcomingOperationPrompt, _step, promptMsg);
             _step++;
             if (WaitForUser)
             {
@@ -437,7 +657,7 @@ namespace QuickStart
                 ErrorHandler(string.Format(ConfigFileError, configFilePath), ex);
             }
 
-            return null; // TODO: can it even reach here with the try catch block?
+            return null;
         }
 
 
@@ -457,10 +677,10 @@ namespace QuickStart
         }
 
 
-        public static void Main()
+        public static async Task Main()
         {
             Console.WriteLine(StartMsg);
-            Start();
+            await Start();
             Console.WriteLine(EndMsg);
         }
     }
