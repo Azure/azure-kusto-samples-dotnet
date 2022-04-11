@@ -1,4 +1,5 @@
-﻿using Kusto.Data;
+﻿using System.Security.Cryptography.X509Certificates;
+using Kusto.Data;
 using Kusto.Data.Common;
 using Kusto.Data.Net.Client;
 using Kusto.Ingest;
@@ -19,6 +20,10 @@ namespace QuickStart
         public string? TableSchema = null;
         public string? KustoUri = null;
         public string? IngestUri = null;
+        public string? CertificatePath = null;
+        public string? CertificatePassword = null;
+        public string? ApplicationId = null;
+        public string? TenantId = null;
         public List<Dictionary<string, string?>>? Data = null;
         public bool? AlterTable = null;
         public bool? QueryData = null;
@@ -63,7 +68,7 @@ namespace QuickStart
         private const string ExceptionMsg = "Exception: ";
         private const string StartMsg = "Kusto sample app is starting...";
         private const string EndMsg = "\nKusto sample app done";
-        private const string MissingFieldsError = "File '{0}' is missing required fields";
+        private const string MissingFieldsError = "File '{0}' is missing required fields: {1}";
         private const string ConfigFileError = "Couldn't read config file: '{0}'";
         private const string UpcomingOperationPrompt = "\nStep {0}: {1}";
         private const string ContinueMsg = "Press any key to proceed with this operation...";
@@ -72,6 +77,7 @@ namespace QuickStart
         private const string AppKeyEnvVar = "APP_KEY";
         private const string AppTenantEnvVar = "APP_TENANT";
         private const string InvalidAuthenticationModeError = "Authentication mode '{0}' is not supported";
+        private const string MissingCertificateError = "Missing Certificate path!";
 
         private const string AlterMergePrompt =
             "Alter-merge existing table '{0}.{1}' to align with the provided schema";
@@ -149,8 +155,10 @@ namespace QuickStart
             if (AuthenticationMode == "UserPrompt")
                 WaitForUserToProceed(AuthenticationPrompt);
 
-            var kustoConnectionString = GenerateConnectionString(config?.KustoUri, AuthenticationMode);
-            var ingestConnectionString = GenerateConnectionString(config?.IngestUri, AuthenticationMode);
+            var kustoConnectionString = GenerateConnectionString(config?.KustoUri, AuthenticationMode,
+                config?.CertificatePath, config?.CertificatePassword, config?.ApplicationId, config?.TenantId);
+            var ingestConnectionString = GenerateConnectionString(config?.IngestUri, AuthenticationMode,
+                config?.CertificatePath, config?.CertificatePassword, config?.ApplicationId, config?.TenantId);
 
             //Tip: Avoid creating a new Kusto/ingest client for each use.Instead,create the clients once and reuse them.
             var adminClient = KustoClientFactory.CreateCslAdminProvider(kustoConnectionString);
@@ -176,11 +184,21 @@ namespace QuickStart
                 using var r = new StreamReader(configFilePath);
                 var json = r.ReadToEnd();
                 var config = JsonConvert.DeserializeObject<ConfigJson>(json);
-                
-                if (config.DatabaseName is null || config.TableName is null || config.TableSchema is null ||
-                    config.KustoUri is null || config.IngestUri is null || config.Data is null)
-                    ErrorHandler(string.Format(MissingFieldsError, configFilePath));
+                var missing = new[]
+                {
+                    (name: nameof(config.DatabaseName), value: config.DatabaseName),
+                    (name: nameof(config.TableName), value: config.TableName),
+                    (name: nameof(config.TableSchema), value: config.TableSchema),
+                    (name: nameof(config.KustoUri), value: config.KustoUri),
+                    (name: nameof(config.IngestUri), value: config.IngestUri),
+                }.Where(item => string.IsNullOrWhiteSpace(item.value)).ToArray();
 
+                if (missing.Any())
+                    ErrorHandler(string.Format(MissingFieldsError, configFilePath,
+                        string.Join(", ", missing.Select(item => item.name))));
+
+                if (config.Data is null)
+                    ErrorHandler(string.Format(MissingFieldsError, configFilePath, "Data"));
                 return config;
             }
 
@@ -199,9 +217,14 @@ namespace QuickStart
         /// <param name="clusterUrl"> Cluster to connect to.</param>
         /// <param name="authenticationMode">User Authentication Mode, 
         ///                                  Options: (UserPrompt|ManagedIdentity|AppKey|AppCertificate)</param>
+        /// <param name="certificatePath">Given certificate path</param>
+        /// <param name="certificatePassword">Given certificate password</param>
+        /// <param name="applicationId">Given application id</param>
+        /// <param name="tenantId">Given tenant id</param>
         /// <returns>A connection string to be used when creating a Client</returns>
         private static KustoConnectionStringBuilder? GenerateConnectionString(string? clusterUrl,
-            string authenticationMode)
+            string authenticationMode, string? certificatePath, string? certificatePassword, string? applicationId,
+            string? tenantId)
         {
             //Learn More: For additional information on how to authorize users and apps in Kusto see:
             //https://docs.microsoft.com/azure/data-explorer/manage-database-permissions
@@ -212,7 +235,9 @@ namespace QuickStart
                     return new KustoConnectionStringBuilder(clusterUrl).WithAadUserPromptAuthentication();
 
                 case "ManagedIdentity":
-                    // TODO: add documentation
+                    // Authenticate using a System-Assigned managed identity provided to an azure service, or using a
+                    // User-Assigned managed identity. For more information, see
+                    // https://docs.microsoft.com/en-us/azure/active-directory/managed-identities-azure-resources/overview
                     return CreateManagedIdentityConnectionString(clusterUrl);
 
                 case "AppKey":
@@ -225,8 +250,9 @@ namespace QuickStart
                         Environment.GetEnvironmentVariable(AppTenantEnvVar));
 
                 case "AppCertificate":
-                // TODO: add documentation
-                //return new KustoConnectionStringBuilder(clusterUrl).WithAadApplicationCertificateAuthentication(); // TODO: Asaf
+                    // Authenticate using a certificate file.
+                    return CreateAppCertificateConnectionString(clusterUrl, certificatePath, certificatePassword,
+                        applicationId, tenantId);
 
                 default:
                     ErrorHandler(string.Format(InvalidAuthenticationModeError, authenticationMode));
@@ -238,7 +264,7 @@ namespace QuickStart
         /// <summary>
         /// Generates Kusto Connection String based on 'ManagedIdentity' Authentication Mode.
         /// </summary>
-        /// <param name="clusterUrl"></param>
+        /// <param name="clusterUrl">Url of cluster to connect to</param>
         /// <returns>ManagedIdentity Kusto Connection String</returns>
         private static KustoConnectionStringBuilder CreateManagedIdentityConnectionString(string? clusterUrl)
         {
@@ -253,7 +279,30 @@ namespace QuickStart
                 .WithAadUserManagedIdentity(clientId);
         }
 
-        
+
+        /// <summary>
+        ///  Generates Kusto Connection String based on 'AppCertificate' Authentication Mode.
+        /// </summary>
+        /// <param name="clusterUrl">Url of cluster to connect to</param>
+        /// <param name="certificatePath">Given certificate path</param>
+        /// <param name="certificatePassword">Given certificate password</param>
+        /// <param name="applicationId">Given application id</param>
+        /// <param name="tenantId">Given tenant id</param>
+        /// <returns>AppCertificate Kusto Connection String</returns>
+        private static KustoConnectionStringBuilder? CreateAppCertificateConnectionString(string? clusterUrl,
+            string? certificatePath, string? certificatePassword, string? applicationId, string? tenantId)
+        {
+            X509Certificate2? certificate = null;
+            if (certificatePath != null)
+                certificate = new X509Certificate2(certificatePath, certificatePassword);
+            else
+                ErrorHandler(MissingCertificateError);
+
+            return new KustoConnectionStringBuilder(clusterUrl).WithAadApplicationCertificateAuthentication(
+                applicationId, certificate, tenantId, sendX5c: true);
+        }
+
+
         /// <summary>
         /// Basic Table Commands - including AlterMerge Existing Table and Create Table control commands, and
         /// Existing Number Of Rows query.
@@ -286,7 +335,7 @@ namespace QuickStart
                 CreateNewTable(adminClient, config?.DatabaseName, config?.TableName, config?.TableSchema);
         }
 
-        
+
         /// <summary>
         /// Entire ingestion process.
         /// </summary>
@@ -320,7 +369,7 @@ namespace QuickStart
             WaitForIngestionToComplete();
         }
 
-        
+
         /// <summary>
         /// Alter-merges the given existing table to provided schema.
         /// </summary>
