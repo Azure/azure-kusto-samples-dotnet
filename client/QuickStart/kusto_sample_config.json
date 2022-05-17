@@ -3,7 +3,7 @@
 	"ingestUri" : "https://ingest-kvc8145132f55d24729976.northeurope.kusto.windows.net",
 	"databaseName" : "MyDatabase",
 	"tableName" : "SampleTable",
-	"useExistingTable": false,
+	"useExistingTable": true,
 	"alterTable": true,
 	"queryData": true,
 	"ingestData": true,

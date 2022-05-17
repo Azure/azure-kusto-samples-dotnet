@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Security.Cryptography.X509Certificates;
 using Kusto.Data;
@@ -16,42 +15,40 @@ using ShellProgressBar;
 namespace QuickStart
 {
     /// <summary>
-    /// ConfigJson object -  represents a cluster and DataBase connection configuration file.
+    /// ConfigJson object - represents a cluster and DataBase connection configuration file.
     /// </summary>
     public class ConfigJson
     {
-        public bool? UseExistingTable = null;
-        public string DatabaseName = null;
-        public string TableName = null;
-        public string TableSchema = null;
-        public string KustoUri = null;
-        public string IngestUri = null;
-        public string CertificatePath = null;
-        public string CertificatePassword = null;
-        public string ApplicationId = null;
-        public string TenantId = null;
-        public List<Dictionary<string, string>> Data = null;
-        public bool? AlterTable = null;
-        public bool? QueryData = null;
-        public bool? IngestData = null;
+        public bool UseExistingTable { get; set; }
+        public string DatabaseName { get; set; }
+        public string TableName { get; set; }
+        public string TableSchema { get; set; }
+        public string KustoUri { get; set; }
+        public string IngestUri { get; set; }
+        public string CertificatePath { get; set; }
+        public string CertificatePassword { get; set; }
+        public string ApplicationId { get; set; }
+        public string TenantId { get; set; }
+        public List<Dictionary<string, string>> Data { get; set; }
+        public bool AlterTable { get; set; }
+        public bool QueryData { get; set; }
+        public bool IngestData { get; set; }
     }
 
 
     /// <summary>
-    /// The quick start application is a self-contained and runnable example script that demonstrates authenticating,
-    /// connecting to, administering, ingesting data into and querying Azure Data Explorer using the azure-kusto C# SDK.
-    /// You can use it as a baseline to write your own first kusto client application, altering the code as you go,
-    /// or copy code sections out of it into your app.
-    /// Tip: The app includes comments with tips on recommendations, coding best practices, links to reference materials
-    /// and recommended TO DO changes when adapting the code to your needs.
+    /// The quick start application is a self-contained and runnable example script that demonstrates authenticating connecting to, administering, ingesting
+    /// data into and querying Azure Data Explorer using the azure-kusto C# SDK. You can use it as a baseline to write your own first kusto client application,
+    /// altering the code as you go, or copy code sections out of it into your app.
+    /// Tip: The app includes comments with tips on recommendations, coding best practices, links to reference materials and recommended TO DO changes when
+    /// adapting the code to your needs.
     /// </summary>
     public static class KustoSampleApp
     {
-        //########################### Constants Start ###########################// 
+        #region Constans
 
         // TODO (config - optional): Change the authentication method from "User Prompt" to any of the other options
-        //  Some of the auth modes require additional environment variables to be set in order to work
-        // (see usage in generate_connection_string below).
+        //  Some of the auth modes require additional environment variables to be set in order to work (see usage in generate_connection_string below).
         //  Managed Identity Authentication only works when running as an Azure service (webapp, function, etc.)
         private const string
             AuthenticationMode = "UserPrompt"; // Options: (UserPrompt|ManagedIdentity|AppKey|AppCertificate)
@@ -60,18 +57,17 @@ namespace QuickStart
         private const bool WaitForUser = true;
 
         // TODO (config):
-        // If this quickstart app was downloaded from OneClick, kusto_sample_config.json should be pre-populated
-        // with your cluster's details.
-        // If this quickstart app was downloaded from GitHub, edit kusto_sample_config.json and modify the cluster URL
-        // and database fields appropriately.
+        // If this quickstart app was downloaded from OneClick, kusto_sample_config.json should be pre-populated with your cluster's details.
+        // If this quickstart app was downloaded from GitHub, edit kusto_sample_config.json and modify the cluster URL and database fields appropriately.
         private const string ConfigFileName = @"kusto_sample_config.json";
         private const int WaitForIngestSeconds = 20;
-        private static int _step = 1;
 
         private const string BatchingPolicy = "{ 'MaximumBatchingTimeSpan': '00:00:10', 'MaximumNumberOfItems': 500, " +
                                               "'MaximumRawDataSizeMB': 1024 }";
-        //########################### Constants End ###########################// 
 
+        #endregion
+
+        private static int _step = 1;
 
         public static async Task Main()
         {
@@ -89,23 +85,24 @@ namespace QuickStart
             var config = LoadConfigs(ConfigFileName);
 
             if (AuthenticationMode == "UserPrompt")
-                WaitForUserToProceed("You will be prompted *twice* for credentials during this script. " +
-                                     "Please return to the console after authenticating.");
+                WaitForUserToProceed("You will be prompted *twice* for credentials during this script. Please return to the console after authenticating.");
 
-            var kustoConnectionString = GenerateConnectionString(config?.KustoUri, AuthenticationMode,
-                config?.CertificatePath, config?.CertificatePassword, config?.ApplicationId, config?.TenantId);
-            var ingestConnectionString = GenerateConnectionString(config?.IngestUri, AuthenticationMode,
-                config?.CertificatePath, config?.CertificatePassword, config?.ApplicationId, config?.TenantId);
+            var kustoConnectionString = GenerateConnectionString(config.KustoUri, AuthenticationMode, config.CertificatePath, config.CertificatePassword,
+                config.ApplicationId, config.TenantId);
+            var ingestConnectionString = GenerateConnectionString(config.IngestUri, AuthenticationMode, config.CertificatePath, config.CertificatePassword,
+                config.ApplicationId, config.TenantId);
 
-            //Tip: Avoid creating a new Kusto/ingest client for each use.Instead,create the clients once and reuse them.
-            var adminClient = KustoClientFactory.CreateCslAdminProvider(kustoConnectionString);
-            var queryProvider = KustoClientFactory.CreateCslQueryProvider(kustoConnectionString);
-            var ingestClient = KustoIngestFactory.CreateQueuedIngestClient(ingestConnectionString);
-
-            BasicTableCommands(config, adminClient, queryProvider);
-            await IngestionHandler(config, adminClient, ingestClient);
-            if (config?.QueryData == true)
-                ExecuteValidationQueries(queryProvider, config.DatabaseName, config.TableName, config.IngestData);
+            
+            using (var adminClient = KustoClientFactory.CreateCslAdminProvider(kustoConnectionString))
+            using (var queryProvider = KustoClientFactory.CreateCslQueryProvider(kustoConnectionString))
+            using (var ingestClient = KustoIngestFactory.CreateQueuedIngestClient(ingestConnectionString))
+            {
+                await CreateAlterOrQueryTable(config, adminClient, queryProvider);
+                if (config.IngestData)
+                    await IngestionHandlerAsync(config, adminClient, ingestClient);
+                if (config.QueryData)
+                    await ExecuteValidationQueries(queryProvider, config.DatabaseName, config.TableName, config.IngestData);
+            }
         }
 
 
@@ -118,29 +115,24 @@ namespace QuickStart
         {
             try
             {
-                using (var r = new StreamReader(configFilePath))
+                var json = File.ReadAllText(configFilePath);
+                var config = JsonConvert.DeserializeObject<ConfigJson>(json);
+                var missing = new[]
                 {
-                    var json = r.ReadToEnd();
-                    var config = JsonConvert.DeserializeObject<ConfigJson>(json);
-                    var missing = new[]
-                    {
-                        (name: nameof(config.DatabaseName), value: config.DatabaseName),
-                        (name: nameof(config.TableName), value: config.TableName),
-                        (name: nameof(config.TableSchema), value: config.TableSchema),
-                        (name: nameof(config.KustoUri), value: config.KustoUri),
-                        (name: nameof(config.IngestUri), value: config.IngestUri),
-                    }.Where(item => string.IsNullOrWhiteSpace(item.value)).ToArray();
+                    (name: nameof(config.DatabaseName), value: config.DatabaseName),
+                    (name: nameof(config.TableName), value: config.TableName),
+                    (name: nameof(config.TableSchema), value: config.TableSchema),
+                    (name: nameof(config.KustoUri), value: config.KustoUri),
+                    (name: nameof(config.IngestUri), value: config.IngestUri),
+                }.Where(item => string.IsNullOrWhiteSpace(item.value)).ToArray();
 
-                    if (missing.Any())
-                        ErrorHandler(
-                            $"File '{configFilePath}' is missing required fields: {string.Join(", ", missing.Select(item => item.name))}");
+                if (missing.Any())
+                    ErrorHandler($"File '{configFilePath}' is missing required fields: {string.Join(", ", missing.Select(item => item.name))}");
 
-                    if (config.Data is null)
-                        ErrorHandler($"File '{configFilePath}' is missing required fields: Data");
-                    return config;
-                }
+                if (config.Data is null || !config.Data.Any() || config.Data[0].Count == 0)
+                    ErrorHandler($"Required field Data in '{configFilePath}' is either missing, empty or misfilled");
+                return config;
             }
-
             catch (Exception ex)
             {
                 ErrorHandler($"Couldn't read config file: '{configFilePath}'", ex);
@@ -154,19 +146,17 @@ namespace QuickStart
         /// Generates Kusto Connection String based on given Authentication Mode.
         /// </summary>
         /// <param name="clusterUrl"> Cluster to connect to.</param>
-        /// <param name="authenticationMode">User Authentication Mode, 
-        ///                                  Options: (UserPrompt|ManagedIdentity|AppKey|AppCertificate)</param>
+        /// <param name="authenticationMode">User Authentication Mode, Options: (UserPrompt|ManagedIdentity|AppKey|AppCertificate)</param>
         /// <param name="certificatePath">Given certificate path</param>
         /// <param name="certificatePassword">Given certificate password</param>
         /// <param name="applicationId">Given application id</param>
         /// <param name="tenantId">Given tenant id</param>
         /// <returns>A connection string to be used when creating a Client</returns>
-        private static KustoConnectionStringBuilder GenerateConnectionString(string clusterUrl,
-            string authenticationMode, string certificatePath, string certificatePassword, string applicationId,
-            string tenantId)
+        private static KustoConnectionStringBuilder GenerateConnectionString(string clusterUrl, string authenticationMode, string certificatePath,
+            string certificatePassword, string applicationId, string tenantId)
         {
-            //Learn More: For additional information on how to authorize users and apps in Kusto see:
-            //https://docs.microsoft.com/azure/data-explorer/manage-database-permissions
+            // Learn More: For additional information on how to authorize users and apps in Kusto see:
+            // https://docs.microsoft.com/azure/data-explorer/manage-database-permissions
             switch (authenticationMode)
             {
                 case "UserPrompt":
@@ -174,14 +164,13 @@ namespace QuickStart
                     return new KustoConnectionStringBuilder(clusterUrl).WithAadUserPromptAuthentication();
 
                 case "ManagedIdentity":
-                    // Authenticate using a System-Assigned managed identity provided to an azure service, or using a
-                    // User-Assigned managed identity. For more information, see
-                    // https://docs.microsoft.com/en-us/azure/active-directory/managed-identities-azure-resources/overview
+                    // Authenticate using a System-Assigned managed identity provided to an azure service, or using a User-Assigned managed identity.
+                    // For more information, see https://docs.microsoft.com/en-us/azure/active-directory/managed-identities-azure-resources/overview
                     return CreateManagedIdentityConnectionString(clusterUrl);
 
                 case "AppKey":
-                    // Learn More: For information about how to procure an AAD Application, see:
-                    // https://docs.microsoft.com/azure/data-explorer/provision-azure-ad-app
+                    // Learn More: For information about how to procure an AAD Application,
+                    // see: https://docs.microsoft.com/azure/data-explorer/provision-azure-ad-app
                     // TODO (config - optional): App ID & tenant, and App Key to authenticate with
                     return new KustoConnectionStringBuilder(clusterUrl).WithAadApplicationKeyAuthentication(
                         Environment.GetEnvironmentVariable("APP_ID"),
@@ -190,8 +179,7 @@ namespace QuickStart
 
                 case "AppCertificate":
                     // Authenticate using a certificate file.
-                    return CreateAppCertificateConnectionString(clusterUrl, certificatePath, certificatePassword,
-                        applicationId, tenantId);
+                    return CreateAppCertificateConnectionString(clusterUrl, certificatePath, certificatePassword, applicationId, tenantId);
 
                 default:
                     ErrorHandler($"Authentication mode '{authenticationMode}' is not supported");
@@ -207,20 +195,17 @@ namespace QuickStart
         /// <returns>ManagedIdentity Kusto Connection String</returns>
         private static KustoConnectionStringBuilder CreateManagedIdentityConnectionString(string clusterUrl)
         {
-            //Connect using the system - or user-assigned managed identity (Azure service only)
+            // Connect using the system - or user-assigned managed identity (Azure service only)
             // TODO (config - optional): Managed identity client ID if you are using a user-assigned managed identity
             var clientId = Environment.GetEnvironmentVariable("MANAGED_IDENTITY_CLIENT_ID");
-            if (clientId is null)
-                return new KustoConnectionStringBuilder(clusterUrl)
-                    .WithAadSystemManagedIdentity();
-
-            return new KustoConnectionStringBuilder(clusterUrl)
-                .WithAadUserManagedIdentity(clientId);
+            return clientId is null
+                ? new KustoConnectionStringBuilder(clusterUrl).WithAadSystemManagedIdentity()
+                : new KustoConnectionStringBuilder(clusterUrl).WithAadUserManagedIdentity(clientId);
         }
 
 
         /// <summary>
-        ///  Generates Kusto Connection String based on 'AppCertificate' Authentication Mode.
+        /// Generates Kusto Connection String based on 'AppCertificate' Authentication Mode.
         /// </summary>
         /// <param name="clusterUrl">Url of cluster to connect to</param>
         /// <param name="certificatePath">Given certificate path</param>
@@ -228,50 +213,87 @@ namespace QuickStart
         /// <param name="applicationId">Given application id</param>
         /// <param name="tenantId">Given tenant id</param>
         /// <returns>AppCertificate Kusto Connection String</returns>
-        private static KustoConnectionStringBuilder CreateAppCertificateConnectionString(string clusterUrl,
-            string certificatePath, string certificatePassword, string applicationId, string tenantId)
+        private static KustoConnectionStringBuilder CreateAppCertificateConnectionString(string clusterUrl, string certificatePath, string certificatePassword,
+            string applicationId, string tenantId)
         {
+            var missing = new[]
+            {
+                (name: nameof(certificatePath), value: certificatePath),
+                (name: nameof(certificatePassword), value: certificatePassword),
+                (name: nameof(applicationId), value: tenantId),
+            }.Where(item => string.IsNullOrWhiteSpace(item.value)).ToArray();
+            if (missing.Any())
+                ErrorHandler($"Missing the following required fields in configuration file in order to authenticate using a certificate: " +
+                             $"{string.Join(", ", missing.Select(item => item.name))}");
+
+
+            var appId = Environment.GetEnvironmentVariable("APP_ID");
+            var appTenant = Environment.GetEnvironmentVariable("APP_TENANT");
+            var privateKeyPemFilePath = Environment.GetEnvironmentVariable("PRIVATE_KEY_PEM_FILE_PATH");
+            var certThumbprint = Environment.GetEnvironmentVariable("CERT_THUMBPRINT");
+            var publicCertFilePath = Environment.GetEnvironmentVariable("PUBLIC_CERT_FILE_PATH");
+            string publicCertificate;
+            string pemCertificate;
+
+            try
+            {
+                pemCertificate = File.ReadAllText(privateKeyPemFilePath ?? throw new InvalidOperationException());
+            }
+            catch (InvalidOperationException e)
+            {
+                ErrorHandler($"Failed to load PEM file from {privateKeyPemFilePath}", e);
+            }
+
+            if (publicCertFilePath != null)
+            {
+                try
+                {
+                    publicCertificate = File.ReadAllText(publicCertFilePath);
+                }
+                catch (InvalidOperationException e)
+                {
+                    ErrorHandler($"Failed to load public certificate file from {publicCertFilePath}", e);
+                }
+                return new KustoConnectionStringBuilder(clusterUrl).WithAadApplicationCertificateAuthentication()
+            }
+                
+            
+            
             X509Certificate2 certificate = null;
             if (certificatePath != null)
                 certificate = new X509Certificate2(certificatePath, certificatePassword);
             else
                 ErrorHandler("Missing Certificate path!");
 
-            return new KustoConnectionStringBuilder(clusterUrl).WithAadApplicationCertificateAuthentication(
-                applicationId, certificate, tenantId, sendX5c: true);
+            return new KustoConnectionStringBuilder(clusterUrl).WithAadApplicationCertificateAuthentication(applicationId, certificate, tenantId,
+                sendX5c: true);
         }
 
 
         /// <summary>
-        /// Basic Table Commands - including AlterMerge Existing Table and Create Table control commands, and
-        /// Existing Number Of Rows query.
+        /// Basic Table Commands - including AlterMerge Existing Table and Create Table control commands, and Existing Number Of Rows query.
         /// </summary>
         /// <param name="config">ConfigJson object</param>
         /// <param name="adminClient">Privileged client to run Control Commands</param>
         /// <param name="queryProvider">Client to run queries</param>
-        private static void BasicTableCommands(ConfigJson config, ICslAdminProvider adminClient,
-            ICslQueryProvider queryProvider)
+        private static async Task CreateAlterOrQueryTable(ConfigJson config, ICslAdminProvider adminClient, ICslQueryProvider queryProvider)
         {
-            if (config.UseExistingTable == true)
+            if (config.UseExistingTable)
             {
-                if (config.AlterTable == true)
-                    // Tip: Usually table was originally created with a schema appropriate for the data being ingested,
-                    // so this wouldn't be needed.
+                if (config.AlterTable)
+                    // Tip: Usually table was originally created with a schema appropriate for the data being ingested, so this wouldn't be needed.
                     // Learn More: For more information about altering table schemas, see:
                     // https://docs.microsoft.com/azure/data-explorer/kusto/management/alter-table-command
-                    AlterMergeExistingTableToProvidedSchema(adminClient, config.DatabaseName,
-                        config.TableName, config.TableSchema);
+                    await AlterMergeExistingTableToProvidedSchema(adminClient, config.DatabaseName, config.TableName, config.TableSchema);
 
-                if (config.QueryData == true)
-                    // Learn More: For more information about Kusto Query Language (KQL), see:
-                    // https://docs.microsoft.com/azure/data-explorer/write-queries
-                    QueryExistingNumberOfRows(queryProvider, config.DatabaseName, config.TableName);
+                if (config.QueryData)
+                    // Learn More: For more information about Kusto Query Language (KQL), see: https://docs.microsoft.com/azure/data-explorer/write-queries
+                    await QueryExistingNumberOfRows(queryProvider, config.DatabaseName, config.TableName);
             }
             else
-                //Tip: This is generally a one-time configuration
-                //Learn More: For more information about creating tables, see:
-                //https://docs.microsoft.com/azure/data-explorer/one-click-table
-                CreateNewTable(adminClient, config.DatabaseName, config.TableName, config.TableSchema);
+                // Tip: This is generally a one-time configuration
+                // Learn More: For more information about creating tables, see: https://docs.microsoft.com/azure/data-explorer/one-click-table
+                await CreateNewTable(adminClient, config.DatabaseName, config.TableName, config.TableSchema);
         }
 
 
@@ -281,29 +303,25 @@ namespace QuickStart
         /// <param name="config">ConfigJson object</param>
         /// <param name="adminClient">Privileged client to run Control Commands</param>
         /// <param name="ingestClient">Client to ingest data</param>
-        private static async Task IngestionHandler(ConfigJson config, ICslAdminProvider adminClient,
-            IKustoIngestClient ingestClient)
+        private static async Task IngestionHandlerAsync(ConfigJson config, ICslAdminProvider adminClient, IKustoIngestClient ingestClient)
         {
-            if (config.IngestData != true) return;
             foreach (var file in config.Data)
             {
                 var dataFormat = (DataSourceFormat) Enum.Parse(typeof(DataSourceFormat), file["format"].ToLower());
                 var mappingName = file["mappingName"];
 
-                // Tip: This is generally a one-time configuration.
-                // Learn More: For more information about providing inline mappings and mapping references,
+                // Tip: This is generally a one-time configuration. Learn More: For more information about providing inline mappings and mapping references,
                 // see: https://docs.microsoft.com/azure/data-explorer/kusto/management/mappings
-                if (!CreateIngestionMappings(
-                        bool.Parse(file["useExistingMapping"]), adminClient, config.DatabaseName,
-                        config.TableName, mappingName, file["mappingValue"], dataFormat))
+                if (!await CreateIngestionMappings(bool.Parse(file["useExistingMapping"]), adminClient, config.DatabaseName, config.TableName,
+                        mappingName, file["mappingValue"], dataFormat))
                     continue;
 
                 // Learn More: For more information about ingesting data to Kusto in C#,
                 // see: https://docs.microsoft.com/en-us/azure/data-explorer/net-sdk-ingest-data
-                await Ingest(file, dataFormat, ingestClient, config.DatabaseName, config.TableName, mappingName);
+                await IngestAsync(file, dataFormat, ingestClient, config.DatabaseName, config.TableName, mappingName);
             }
 
-            WaitForIngestionToComplete();
+            await WaitForIngestionToComplete();
         }
 
 
@@ -314,17 +332,15 @@ namespace QuickStart
         /// <param name="configDatabaseName">DB name</param>
         /// <param name="configTableName">Table name</param>
         /// <param name="configTableSchema">Table Schema</param>
-        private static void AlterMergeExistingTableToProvidedSchema(ICslAdminProvider adminClient,
-            string configDatabaseName, string configTableName, string configTableSchema)
+        private static async Task AlterMergeExistingTableToProvidedSchema(ICslAdminProvider adminClient, string configDatabaseName, string configTableName,
+            string configTableSchema)
         {
-            WaitForUserToProceed($"Alter-merge existing table '{configDatabaseName}.{configTableName}' " +
-                                 $"to align with the provided schema");
+            WaitForUserToProceed($"Alter-merge existing table '{configDatabaseName}.{configTableName}' to align with the provided schema");
 
-            // You can also use the CslCommandGenerator class to build commands:
-            // string command = CslCommandGenerator.GenerateTableAlterMergeCommand();
+            // You can also use the CslCommandGenerator class to build commands: string command = CslCommandGenerator.GenerateTableAlterMergeCommand();
             var command = $".alter-merge table {configTableName} {configTableSchema}";
 
-            if (!ExecuteControlCommand(adminClient, configDatabaseName, command))
+            if (!await ExecuteControlCommand(adminClient, configDatabaseName, command))
                 ErrorHandler($"Failed to alter table using command '{command}'");
         }
 
@@ -335,12 +351,11 @@ namespace QuickStart
         /// <param name="queryClient">Client to run queries</param>
         /// <param name="configDatabaseName">DB name</param>
         /// <param name="configTableName">Table name</param>
-        private static void QueryExistingNumberOfRows(ICslQueryProvider queryClient, string configDatabaseName,
-            string configTableName)
+        private static async Task QueryExistingNumberOfRows(ICslQueryProvider queryClient, string configDatabaseName, string configTableName)
         {
             WaitForUserToProceed($"Get existing row count in '{configDatabaseName}.{configTableName}'");
             var query = $"{configTableName} | count";
-            if (!ExecuteQuery(queryClient, configDatabaseName, query))
+            if (!await ExecuteQuery(queryClient, configDatabaseName, query))
                 ErrorHandler($"Failed to execute query: '{query}'");
         }
 
@@ -352,32 +367,27 @@ namespace QuickStart
         /// <param name="configDatabaseName">DB name</param>
         /// <param name="configTableName">Table name</param>
         /// <param name="configTableSchema">Table Schema</param>
-        private static void CreateNewTable(ICslAdminProvider adminClient, string configDatabaseName,
-            string configTableName, string configTableSchema)
+        private static async Task CreateNewTable(ICslAdminProvider adminClient, string configDatabaseName, string configTableName, string configTableSchema)
         {
-            WaitForUserToProceed($"$Create table '{configDatabaseName}.{configTableName}'");
+            WaitForUserToProceed($"Create table '{configDatabaseName}.{configTableName}'");
 
-            // You can also use the CslCommandGenerator class to build commands:
-            // string command = CslCommandGenerator.GenerateTableCreateCommand();
+            // You can also use the CslCommandGenerator class to build commands: string command = CslCommandGenerator.GenerateTableCreateCommand();
             var command = $".create table {configTableName} {configTableSchema}";
 
-            if (!ExecuteControlCommand(adminClient, configDatabaseName, command))
+            if (!await ExecuteControlCommand(adminClient, configDatabaseName, command))
                 ErrorHandler($"Failed to create table or validate it exists using command '{command}'");
 
-            // Learn More:
-            // Kusto batches data for ingestion efficiency. The default batching policy ingests data when one of
-            // the following conditions are met:
+            // Learn More: Kusto batches data for ingestion efficiency. The default batching policy ingests data when one of the following conditions are met:
             //   1) More than 1,000 files were queued for ingestion for the same table by the same user
             //   2) More than 1GB of data was queued for ingestion for the same table by the same user
-            //   3) More than 5 minutes have passed since the first file was queued for ingestion for the same table
-            //      by the same user
+            //   3) More than 5 minutes have passed since the first file was queued for ingestion for the same table by the same user
             //  For more information about customizing the ingestion batching policy, see:
             // https://docs.microsoft.com/azure/data-explorer/kusto/management/batchingpolicy
 
             // TODO: Change if needed.
             // Disabled to prevent an existing batching policy from being unintentionally changed
             if (false)
-                AlterBatchingPolicy(adminClient, configDatabaseName, configTableName);
+                await AlterBatchingPolicy(adminClient, configDatabaseName, configTableName);
         }
 
 
@@ -387,22 +397,19 @@ namespace QuickStart
         /// <param name="adminClient">Privileged client to run Control Commands</param>
         /// <param name="configDatabaseName">DB name</param>
         /// <param name="configTableName">Table name</param>
-        private static void AlterBatchingPolicy(ICslAdminProvider adminClient, string configDatabaseName,
-            string configTableName)
+        private static async Task AlterBatchingPolicy(ICslAdminProvider adminClient, string configDatabaseName, string configTableName)
         {
-            // Tip 1: Though most users should be fine with the defaults, to speed up ingestion, such as during
-            // development and in this sample app, we opt to modify the default ingestion policy to ingest data after
-            // at most 10 seconds.
+            // Tip 1: Though most users should be fine with the defaults, to speed up ingestion, such as during development and in this sample app, we opt to
+            // modify the default ingestion policy to ingest data after at most 10 seconds.
             // Tip 2: This is generally a one-time configuration.
-            // Tip 3: You can also skip the batching for some files using the Flush-Immediately property, though this
-            // option should be used with care as it is inefficient.
+            // Tip 3: You can also skip the batching for some files using the Flush-Immediately property, though this option should be used with care as it is
+            // inefficient.
 
             WaitForUserToProceed($"Alter the batching policy for table '{configDatabaseName}.{configTableName}'");
             var command = $".alter table {configTableName} policy ingestionbatching @'{BatchingPolicy}'";
-            if (!ExecuteControlCommand(adminClient, configDatabaseName, command))
-                Console.WriteLine("Failed to alter the ingestion policy, which could be the result of insufficient " +
-                                  "permissions. The sample will still run, though ingestion will be delayed for up" +
-                                  " to 5 minutes.");
+            if (!await ExecuteControlCommand(adminClient, configDatabaseName, command))
+                Console.WriteLine("Failed to alter the ingestion policy, which could be the result of insufficient permissions. The sample will still run, " +
+                                  "though ingestion will be delayed for up to 5 minutes.");
         }
 
 
@@ -417,13 +424,11 @@ namespace QuickStart
             var clientRequestProperties = new ClientRequestProperties
             {
                 Application = "QuickStart.csproj",
-                // It is strongly recommended that each request has its own unique
-                // request identifier. This is mandatory for some scenarios (such as cancelling queries)
-                // and will make troubleshooting easier in others.
+                // It is strongly recommended that each request has its own unique request identifier.
+                // This is mandatory for some scenarios (such as cancelling queries) and will make troubleshooting easier in others.
                 ClientRequestId = $"{scope};{Guid.NewGuid().ToString()}"
             };
-            // Tip: Though uncommon, you can alter the request default command timeout using the below command,
-            // e.g. to set the timeout to 10 minutes, use "10m"
+            // Tip: Though uncommon, you can alter the request default command timeout using the below command, e.g. to set the timeout to 10 minutes, use "10m"
             if (timeout != null)
                 clientRequestProperties.SetOption(ClientRequestProperties.OptionServerTimeout, timeout);
 
@@ -438,20 +443,17 @@ namespace QuickStart
         /// <param name="configDatabaseName">DB name</param>
         /// <param name="command">The Control Command</param>
         /// <returns>True on success, false otherwise</returns>
-        private static bool ExecuteControlCommand(ICslAdminProvider adminClient, string configDatabaseName,
-            string command)
+        private static async Task<bool> ExecuteControlCommand(ICslAdminProvider adminClient, string configDatabaseName, string command)
         {
             try
             {
                 var clientRequestProperties = CreateClientRequestProperties("CS_SampleApp_ControlCommand");
-                var result = adminClient
-                    .ExecuteControlCommandAsync(configDatabaseName, command, clientRequestProperties)
-                    .GetAwaiter().GetResult().ToJObjects().ToArray(); // In real code use await in async method
+                var result = (await adminClient.ExecuteControlCommandAsync(configDatabaseName, command, clientRequestProperties)).ToJObjects().ToArray();
 
-                // Tip: Actual implementations wouldn't generally print the response from a control command.
-                // We print here to demonstrate what a sample of the response looks like.
-                // Moreover, there are some built-in classes for control commands under the Kusto.Data namespace -
-                // for example, Kusto.Data.TablesShowCommandResult maps to the result of the ".show tables" commands
+                // Tip: Actual implementations wouldn't generally print the response from a control command.We print here to demonstrate what a sample of the
+                // response looks like.
+                // Moreover, there are some built-in classes for control commands under the Kusto.Data namespace -for example,
+                // Kusto.Data.TablesShowCommandResult maps to the result of the ".show tables" commands
                 Console.WriteLine($"Response from executed control command '{command}':\n--------------------");
                 var firstRow = result[0];
                 foreach (var item in firstRow.Properties())
@@ -459,7 +461,6 @@ namespace QuickStart
 
                 return true;
             }
-
             catch (Exception ex)
             {
                 var err = ex.GetType().ToString();
@@ -486,16 +487,15 @@ namespace QuickStart
         /// <param name="configDatabaseName">DB name</param>
         /// <param name="query">The query</param>
         /// <returns>True on success, false otherwise</returns>
-        private static bool ExecuteQuery(ICslQueryProvider queryClient, string configDatabaseName, string query)
+        private static async Task<bool> ExecuteQuery(ICslQueryProvider queryClient, string configDatabaseName, string query)
         {
             try
             {
                 var clientRequestProperties = CreateClientRequestProperties("CS_SampleApp_Query");
-                var result = queryClient.ExecuteQueryAsync(configDatabaseName, query, clientRequestProperties)
-                    .GetAwaiter().GetResult().ToJObjects().ToArray(); // In real code use await in async method
+                var result = (await queryClient.ExecuteQueryAsync(configDatabaseName, query, clientRequestProperties)).ToJObjects().ToArray();
 
-                // Tip: Actual implementations wouldn't generally print the response from a query.
-                // We print here to demonstrate what a sample of the response looks like.
+                // Tip: Actual implementations wouldn't generally print the response from a query. We print here to demonstrate what a sample of the response
+                // looks like.
                 Console.WriteLine($"Response from executed query '{query}':\n--------------------");
                 var firstRow = result[0];
                 foreach (var item in firstRow.Properties())
@@ -503,7 +503,6 @@ namespace QuickStart
 
                 return true;
             }
-
             catch (Exception ex)
             {
                 var err = ex.GetType().ToString();
@@ -534,9 +533,9 @@ namespace QuickStart
         /// <param name="mappingValue">Values of the new mappings to create</param>
         /// <param name="dataFormat">Given data format</param>
         /// <returns>True if Ingestion Mappings exists (whether by us, or the already existing one)</returns>
-        private static bool CreateIngestionMappings(bool useExistingMapping, ICslAdminProvider adminClient,
-            string configDatabaseName, string configTableName, string mappingName, string mappingValue,
-            DataSourceFormat dataFormat)
+        private static async Task<bool> CreateIngestionMappings(bool useExistingMapping, ICslAdminProvider adminClient, string configDatabaseName,
+            string configTableName,
+            string mappingName, string mappingValue, DataSourceFormat dataFormat)
         {
             if (useExistingMapping || mappingValue is null)
                 return true;
@@ -546,13 +545,11 @@ namespace QuickStart
 
             mappingName = mappingName ?? "DefaultQuickstartMapping" + Guid.NewGuid().ToString().Substring(0, 5);
             var mappingCommand =
-                $".create-or-alter table {configTableName} ingestion {ingestionMappingKind} mapping '{mappingName}'" +
-                $" '{mappingValue}'";
+                $".create-or-alter table {configTableName} ingestion {ingestionMappingKind} mapping '{mappingName}' '{mappingValue}'";
 
-            if (!ExecuteControlCommand(adminClient, configDatabaseName, mappingCommand))
+            if (!await ExecuteControlCommand(adminClient, configDatabaseName, mappingCommand))
                 ErrorHandler(
-                    $"Failed to create a '{ingestionMappingKind}' mapping reference named '{mappingName}'." +
-                    $" Skipping this ingestion.");
+                    $"Failed to create a '{ingestionMappingKind}' mapping reference named '{mappingName}'. Skipping this ingestion.");
 
             return true;
         }
@@ -566,8 +563,8 @@ namespace QuickStart
         /// <param name="dataFormat">Given data format</param>
         /// <param name="mappingName">Desired mapping name</param>
         /// <returns>KustoIngestionProperties object</returns>
-        private static KustoIngestionProperties CreateIngestionProperties(string configDatabaseName,
-            string configTableName, DataSourceFormat dataFormat, string mappingName)
+        private static KustoIngestionProperties CreateIngestionProperties(string configDatabaseName, string configTableName, DataSourceFormat dataFormat,
+            string mappingName)
         {
             var kustoIngestionProperties = new KustoIngestionProperties()
             {
@@ -584,36 +581,33 @@ namespace QuickStart
         /// <summary>
         /// Ingest data from given source.
         /// </summary>
-        /// <param name="file">Given data source</param>
+        /// <param name="dataSource">Given data source</param>
         /// <param name="dataFormat">Given data format</param>
         /// <param name="ingestClient">Client to ingest data</param>
         /// <param name="configDatabaseName">DB name</param>
         /// <param name="configTableName">Table name</param>
         /// <param name="mappingName">Desired mapping name</param>
-        private static async Task Ingest(IReadOnlyDictionary<string, string> file, DataSourceFormat dataFormat,
-            IKustoIngestClient ingestClient, string configDatabaseName, string configTableName, string mappingName)
+        private static async Task IngestAsync(IReadOnlyDictionary<string, string> dataSource, DataSourceFormat dataFormat, IKustoIngestClient ingestClient,
+            string configDatabaseName, string configTableName, string mappingName)
         {
-            var sourceType = file["sourceType"]?.ToLower();
-            var sourceUri = file["dataSourceUri"];
+            var sourceType = dataSource["sourceType"].ToLower();
+            var sourceUri = dataSource["dataSourceUri"];
             WaitForUserToProceed($"Ingest '{sourceUri}' from '{sourceType}'");
 
-            // Tip: When ingesting json files, if each line represents a single-line json, use MULTIJSON format even
-            // if the file only contains one line. If the json contains whitespace formatting, use SINGLEJSON.
-            // In this case, only one data row json object is allowed per file.
+            // Tip: When ingesting json files, if each line represents a single-line json, use MULTIJSON format even if the file only contains one line.
+            // If the json contains whitespace formatting, use SINGLEJSON. In this case, only one data row json object is allowed per file.
             dataFormat = dataFormat == DataSourceFormat.json ? DataSourceFormat.multijson : dataFormat;
 
-            // Tip: Kusto's C# SDK can ingest data from files, blobs and open streams.
-            // See the SDK's samples and the E2E tests in azure.kusto.ingest for additional references.
+            // Tip: Kusto's C# SDK can ingest data from files, blobs and open streams.See the SDK's samples and the E2E tests in azure.kusto.ingest for
+            // additional references.
 
             switch (sourceType)
             {
                 case "localfilesource":
-                    await IngestFromFile(ingestClient, configDatabaseName, configTableName, sourceUri, dataFormat,
-                        mappingName);
+                    await IngestFromFile(ingestClient, configDatabaseName, configTableName, sourceUri, dataFormat, mappingName);
                     break;
                 case "blobsource":
-                    await IngestFromBlob(ingestClient, configDatabaseName, configTableName, sourceUri, dataFormat,
-                        mappingName);
+                    await IngestFromBlobAsync(ingestClient, configDatabaseName, configTableName, sourceUri, dataFormat, mappingName);
                     break;
                 default:
                     ErrorHandler($"Unknown source '{sourceType}' for file '{sourceUri}'");
@@ -628,30 +622,27 @@ namespace QuickStart
         /// <param name="ingestClient">Client to ingest data</param>
         /// <param name="configDatabaseName">DB name</param>
         /// <param name="configTableName">Table name</param>
-        /// <param name="sourceUri">File path</param>
+        /// <param name="filePath">File path</param>
         /// <param name="dataFormat">Given data format</param>
         /// <param name="mappingName">Desired mapping name</param>
-        private static async Task IngestFromFile(IKustoIngestClient ingestClient, string configDatabaseName,
-            string configTableName, string sourceUri, DataSourceFormat dataFormat, string mappingName)
+        private static async Task IngestFromFile(IKustoIngestClient ingestClient, string configDatabaseName, string configTableName, string filePath,
+            DataSourceFormat dataFormat, string mappingName)
         {
-            var ingestionProperties =
-                CreateIngestionProperties(configDatabaseName, configTableName, dataFormat, mappingName);
+            var ingestionProperties = CreateIngestionProperties(configDatabaseName, configTableName, dataFormat, mappingName);
 
-            // Tip 1: For optimal ingestion batching and performance, specify the uncompressed data size in the
-            // file descriptor instead of the default below of 0. Otherwise, the service will determine the file size,
-            // requiring an additional s2s call, and may not be accurate for compressed files.
-            // Tip 2: To correlate between ingestion operations in your applications and Kusto, set the source ID
-            // and log it somewhere.
-            // Tip 3: To instruct the client to ingest a file (and not another source type), we can either provide it 
-            // with a path as the sourceUri, or use the IsLocalFileSystem = true flag.
-            var sourceOptions = new StorageSourceOptions()
+            // Tip 1: For optimal ingestion batching and performance, specify the uncompressed data size in the file descriptor instead of the default below of
+            // 0. Otherwise, the service will determine the file size, requiring an additional s2s call, and may not be accurate for compressed files.
+            // Tip 2: To correlate between ingestion operations in your applications and Kusto, set the source ID and log it somewhere.
+            // Tip 3: To instruct the client to ingest a file (and not another source type), we can either provide it with a path as the sourceUri,
+            // or use the IsLocalFileSystem = true flag.
+            var sourceOptions = new StorageSourceOptions
             {
                 Size = 0,
                 SourceId = Guid.NewGuid(),
                 IsLocalFileSystem = true
             };
 
-            await ingestClient.IngestFromStorageAsync(sourceUri, ingestionProperties, sourceOptions);
+            await ingestClient.IngestFromStorageAsync(filePath, ingestionProperties, sourceOptions);
         }
 
 
@@ -661,32 +652,30 @@ namespace QuickStart
         /// <param name="ingestClient">Client to ingest data</param>
         /// <param name="configDatabaseName">DB name</param>
         /// <param name="configTableName">Table name</param>
-        /// <param name="sourceUri">Blob Uri</param>
+        /// <param name="blobUri">Blob Uri</param>
         /// <param name="dataFormat">Given data format</param>
         /// <param name="mappingName">Desired mapping name</param>
-        private static async Task IngestFromBlob(IKustoIngestClient ingestClient, string configDatabaseName,
-            string configTableName, string sourceUri, DataSourceFormat dataFormat, string mappingName)
+        private static async Task IngestFromBlobAsync(IKustoIngestClient ingestClient, string configDatabaseName, string configTableName, string blobUri,
+            DataSourceFormat dataFormat, string mappingName)
         {
-            var ingestionProperties =
-                CreateIngestionProperties(configDatabaseName, configTableName, dataFormat, mappingName);
+            var ingestionProperties = CreateIngestionProperties(configDatabaseName, configTableName, dataFormat, mappingName);
 
-            // Tip 1: For optimal ingestion batching and performance, specify the uncompressed data size in the
-            // file descriptor instead of the default below of 0. Otherwise, the service will determine the file size,
-            // requiring an additional s2s call, and may not be accurate for compressed files.
-            // Tip 2: To correlate between ingestion operations in your applications and Kusto, set the source ID
-            // and log it somewhere
+            // Tip 1: For optimal ingestion batching and performance, specify the uncompressed data size in the file descriptor instead of the default below of
+            // 0. Otherwise, the service will determine the file size, requiring an additional s2s call, and may not be accurate for compressed files.
+            // Tip 2: To correlate between ingestion operations in your applications and Kusto, set the source ID and log it somewhere
             var sourceOptions = new StorageSourceOptions() {Size = 0, SourceId = Guid.NewGuid()};
-            await ingestClient.IngestFromStorageAsync(sourceUri, ingestionProperties, sourceOptions);
+            await ingestClient.IngestFromStorageAsync(blobUri, ingestionProperties, sourceOptions);
         }
 
 
         /// <summary>
         /// Halts the program for WaitForIngestSeconds, allowing the queued ingestion process to complete.
         /// </summary>
-        private static void WaitForIngestionToComplete()
+        private static async Task WaitForIngestionToComplete()
         {
-            Console.WriteLine($"Sleeping {WaitForIngestSeconds} seconds for queued ingestion to complete. Note: " +
-                              $"This may take longer depending on the file size and ingestion batching policy.");
+            Console.WriteLine(
+                $"Sleeping {WaitForIngestSeconds} seconds for queued ingestion to complete. Note: This may take longer depending on the file size " +
+                $"and ingestion batching policy.");
             Console.WriteLine();
             Console.WriteLine();
 
@@ -701,7 +690,7 @@ namespace QuickStart
                 for (var i = WaitForIngestSeconds * 2; i >= 0; i--)
                 {
                     pbar.Tick();
-                    Thread.Sleep(500);
+                    await Task.Delay(500);
                 }
             }
         }
@@ -714,21 +703,20 @@ namespace QuickStart
         /// <param name="configDatabaseName">DB Name</param>
         /// <param name="configTableName">Table Name</param>
         /// <param name="configIngestData">Flag noting whether any data was ingested by the script</param>
-        private static void ExecuteValidationQueries(ICslQueryProvider queryProvider, string configDatabaseName,
-            string configTableName, bool? configIngestData)
+        private static async Task ExecuteValidationQueries(ICslQueryProvider queryProvider, string configDatabaseName, string configTableName,
+            bool configIngestData)
         {
-            var optionalPostIngestionPrompt = configIngestData == true ? "post-ingestion " : "";
-            WaitForUserToProceed($"Get {optionalPostIngestionPrompt}row count for " +
-                                 $"'{configDatabaseName}.{configTableName}':");
+            var optionalPostIngestionPrompt = configIngestData ? "post-ingestion " : "";
+            WaitForUserToProceed($"Get {optionalPostIngestionPrompt}row count for '{configDatabaseName}.{configTableName}':");
 
             var rowQuery = $"{configTableName} | count";
-            if (!ExecuteQuery(queryProvider, configDatabaseName, rowQuery))
+            if (!await ExecuteQuery(queryProvider, configDatabaseName, rowQuery))
                 ErrorHandler($"Failed to execute query: '{rowQuery}'");
 
             WaitForUserToProceed($"Get sample (2 records) of {optionalPostIngestionPrompt}data:");
 
             var sampleQuery = $"{configTableName} | take 2";
-            if (!ExecuteQuery(queryProvider, configDatabaseName, sampleQuery))
+            if (!await ExecuteQuery(queryProvider, configDatabaseName, sampleQuery))
                 ErrorHandler($"Failed to execute query: '{sampleQuery}'");
         }
 
@@ -750,8 +738,7 @@ namespace QuickStart
 
 
         /// <summary>
-        /// Error handling function. Will mention the appropriate error message (and the exception itself if exists),
-        /// and will quit the program. 
+        /// Error handling function. Will mention the appropriate error message (and the exception itself if exists), and will quit the program. 
         /// </summary>
         /// <param name="error">Appropriate error message received from calling function</param>
         /// <param name="e">Thrown exception</param>

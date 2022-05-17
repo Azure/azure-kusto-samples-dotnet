@@ -4,7 +4,7 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{63F38CC7-E9EA-4B48-886A-843C116680DF}</ProjectGuid>
+    <ProjectGuid>{C50072AB-DD8C-47A6-9493-F99F1849C9AD}</ProjectGuid>
     <OutputType>Exe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>ManagedStreamingIngestionSample</RootNamespace>

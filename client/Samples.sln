@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.29209.62
+# Visual Studio Version 17
+VisualStudioVersion = 17.1.32407.343
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StreamingIngestionSample", "StreamingIngestionSample\StreamingIngestionSample.csproj", "{63F38CC7-E9EA-4B48-886A-843C116680DF}"
 EndProject
@@ -25,10 +25,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DatabaseCursorSample", "Dat
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HelloKustoV2", "HelloKustoV2\HelloKustoV2.csproj", "{D9937B3F-88B2-430F-87D7-D86B911A0F49}"
 EndProject
-
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ManagedStreamingIngestionSample", "ManagedStreamingIngestionSample\ManagedStreamingIngestionSample.csproj", "{63F38CC7-E9EA-4B48-886A-843C116680DF}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ManagedStreamingIngestionSample", "ManagedStreamingIngestionSample\ManagedStreamingIngestionSample.csproj", "{C50072AB-DD8C-47A6-9493-F99F1849C9AD}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "QuickStart", "QuickStart\QuickStart.csproj", "{03454B77-F58C-4934-8C97-F774F98EC7B0}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "QuickStart", "QuickStart\QuickStart.csproj", "{03454B77-F58C-4934-8C97-F774F98EC7B0}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -80,6 +79,10 @@ Global
 		{D9937B3F-88B2-430F-87D7-D86B911A0F49}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D9937B3F-88B2-430F-87D7-D86B911A0F49}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D9937B3F-88B2-430F-87D7-D86B911A0F49}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C50072AB-DD8C-47A6-9493-F99F1849C9AD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C50072AB-DD8C-47A6-9493-F99F1849C9AD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C50072AB-DD8C-47A6-9493-F99F1849C9AD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C50072AB-DD8C-47A6-9493-F99F1849C9AD}.Release|Any CPU.Build.0 = Release|Any CPU
 		{03454B77-F58C-4934-8C97-F774F98EC7B0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{03454B77-F58C-4934-8C97-F774F98EC7B0}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{03454B77-F58C-4934-8C97-F774F98EC7B0}.Release|Any CPU.ActiveCfg = Release|Any CPU
