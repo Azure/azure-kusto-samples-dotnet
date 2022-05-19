@@ -17,7 +17,7 @@ namespace QuickStart
     /// <summary>
     /// ConfigJson object - represents a cluster and DataBase connection configuration file.
     /// </summary>
-    public class ConfigJson
+    public class ConfigJson_1
     {
         public bool UseExistingTable { get; set; }
         public string DatabaseName { get; set; }
@@ -43,7 +43,7 @@ namespace QuickStart
     /// Tip: The app includes comments with tips on recommendations, coding best practices, links to reference materials and recommended TO DO changes when
     /// adapting the code to your needs.
     /// </summary>
-    public static class KustoSampleApp
+    public static class KustoSampleApp_1
     {
         #region Constans
 
@@ -92,7 +92,7 @@ namespace QuickStart
             var ingestConnectionString = GenerateConnectionString(config.IngestUri, AuthenticationMode, config.CertificatePath, config.CertificatePassword,
                 config.ApplicationId, config.TenantId);
 
-            
+
             using (var adminClient = KustoClientFactory.CreateCslAdminProvider(kustoConnectionString))
             using (var queryProvider = KustoClientFactory.CreateCslQueryProvider(kustoConnectionString))
             using (var ingestClient = KustoIngestFactory.CreateQueuedIngestClient(ingestConnectionString))
@@ -254,11 +254,11 @@ namespace QuickStart
                 {
                     ErrorHandler($"Failed to load public certificate file from {publicCertFilePath}", e);
                 }
-                return new KustoConnectionStringBuilder(clusterUrl).WithAadApplicationCertificateAuthentication()
+                // return new KustoConnectionStringBuilder(clusterUrl).WithAadApplicationCertificateAuthentication();
             }
-                
-            
-            
+
+
+
             X509Certificate2 certificate = null;
             if (certificatePath != null)
                 certificate = new X509Certificate2(certificatePath, certificatePassword);
@@ -307,7 +307,7 @@ namespace QuickStart
         {
             foreach (var file in config.Data)
             {
-                var dataFormat = (DataSourceFormat) Enum.Parse(typeof(DataSourceFormat), file["format"].ToLower());
+                var dataFormat = (DataSourceFormat)Enum.Parse(typeof(DataSourceFormat), file["format"].ToLower());
                 var mappingName = file["mappingName"];
 
                 // Tip: This is generally a one-time configuration. Learn More: For more information about providing inline mappings and mapping references,
@@ -570,7 +570,7 @@ namespace QuickStart
             {
                 DatabaseName = configDatabaseName,
                 TableName = configTableName,
-                IngestionMapping = new IngestionMapping() {IngestionMappingReference = mappingName},
+                IngestionMapping = new IngestionMapping() { IngestionMappingReference = mappingName },
                 Format = dataFormat
             };
 
@@ -663,7 +663,7 @@ namespace QuickStart
             // Tip 1: For optimal ingestion batching and performance, specify the uncompressed data size in the file descriptor instead of the default below of
             // 0. Otherwise, the service will determine the file size, requiring an additional s2s call, and may not be accurate for compressed files.
             // Tip 2: To correlate between ingestion operations in your applications and Kusto, set the source ID and log it somewhere
-            var sourceOptions = new StorageSourceOptions() {Size = 0, SourceId = Guid.NewGuid()};
+            var sourceOptions = new StorageSourceOptions() { Size = 0, SourceId = Guid.NewGuid() };
             await ingestClient.IngestFromStorageAsync(blobUri, ingestionProperties, sourceOptions);
         }
 
