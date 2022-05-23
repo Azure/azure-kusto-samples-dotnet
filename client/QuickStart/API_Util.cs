@@ -3,11 +3,12 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
+using System.Security.Cryptography.X509Certificates;
 using Kusto.Data;
 using Kusto.Data.Common;
 using Kusto.Ingest;
-using System.Security.Cryptography.X509Certificates;
+using Newtonsoft.Json;
+using Kusto.Cloud.Platform.Data;
 using ShellProgressBar;
 
 namespace QuickStart
@@ -17,35 +18,70 @@ namespace QuickStart
     /// </summary>
     public class ConfigJson
     {
+        /// Flag to indicate whether to use an existing table, or to create a new one. 
         public bool UseExistingTable { get; set; }
+
+        /// DB to work on from the given URI.
         public string DatabaseName { get; set; }
+
+        /// Table to work on from the given DB.
         public string TableName { get; set; }
+
+        /// Table to work with from the given Table.
         public string TableSchema { get; set; }
+
+        /// Cluster to connect to and query from.
         public string KustoUri { get; set; }
+
+        /// Ingestion cluster to connect and ingest to. will usually be the same as the KustoUri, but starting with "ingest-"...
         public string IngestUri { get; set; }
+
+        /// Certificate Path when using AppCertificate authentication mode.
         public string CertificatePath { get; set; }
+
+        /// Certificate Password when using AppCertificate authentication mode.
         public string CertificatePassword { get; set; }
+
+        /// Application Id when using AppCertificate authentication mode.
         public string ApplicationId { get; set; }
+
+        /// Tenant Id when using AppCertificate authentication mode.
         public string TenantId { get; set; }
+
+        /// Data sources list to ingest from.
         public List<Dictionary<string, string>> Data { get; set; }
+
+        /// Flag to indicate whether to Alter-merge the table (query).
         public bool AlterTable { get; set; }
+
+        /// Flag to indicate whether to query the starting data (query).
         public bool QueryData { get; set; }
+
+        /// Flag to indicate whether ingest data based on data sources.
         public bool IngestData { get; set; }
 
-        // TODO (config in the configuration file - optional): Change the authentication method from "User Prompt" to any of the other options
-        //  Some of the auth modes require additional environment variables to be set in order to work (see usage in generate_connection_string function).
-        //  Managed Identity Authentication only works when running as an Azure service (webapp, function, etc.)
-        public string AuthenticationMode { get; set; } // Options: (UserPrompt|ManagedIdentity|AppKey|AppCertificate)
-        // TODO (config - optional): Toggle to False to execute this script "unattended"
+        /// Recommended default: UserPrompt
+        /// Some of the auth modes require additional environment variables to be set in order to work (see usage in generate_connection_string function).
+        /// Managed Identity Authentication only works when running as an Azure service (webapp, function, etc.)
+        /// Options: (UserPrompt|ManagedIdentity|AppKey|AppCertificate)
+        public string AuthenticationMode { get; set; }
+
+        /// Recommended default: True
+        /// Toggle to False to execute this script "unattended"
         public bool WaitForUser { get; set; }
+
+        /// Sleep time to allow for queued ingestion to complete.
         public int WaitForIngestSeconds { get; set; }
+
+        /// Optional - Customized ingestion batching policy
         public string BatchingPolicy { get; set; }
     }
 
+    /// <summary>
+    /// Util static class - Handels the communication with the API, and provides generic and simple "plug-n-play" functions to use in different programs.
+    /// </summary>
     public static class Util
     {
-        private static int _step = 1;
-
         /// <summary>
         /// Loads JSON configuration file, and sets the metadata in place. 
         /// </summary>
@@ -92,8 +128,7 @@ namespace QuickStart
         /// <param name="applicationId">Given application id</param>
         /// <param name="tenantId">Given tenant id</param>
         /// <returns>A connection string to be used when creating a Client</returns>
-        public static KustoConnectionStringBuilder GenerateConnectionString(string clusterUrl, string authenticationMode, string certificatePath,
-            string certificatePassword, string applicationId, string tenantId)
+        public static KustoConnectionStringBuilder GenerateConnectionString(string clusterUrl, string authenticationMode, string certificatePath, string certificatePassword, string applicationId, string tenantId)
         {
             // Learn More: For additional information on how to authorize users and apps in Kusto see:
             // https://docs.microsoft.com/azure/data-explorer/manage-database-permissions
@@ -137,11 +172,8 @@ namespace QuickStart
             // Connect using the system - or user-assigned managed identity (Azure service only)
             // TODO (config - optional): Managed identity client ID if you are using a user-assigned managed identity
             var clientId = Environment.GetEnvironmentVariable("MANAGED_IDENTITY_CLIENT_ID");
-            return clientId is null
-                ? new KustoConnectionStringBuilder(clusterUrl).WithAadSystemManagedIdentity()
-                : new KustoConnectionStringBuilder(clusterUrl).WithAadUserManagedIdentity(clientId);
+            return clientId is null ? new KustoConnectionStringBuilder(clusterUrl).WithAadSystemManagedIdentity() : new KustoConnectionStringBuilder(clusterUrl).WithAadUserManagedIdentity(clientId);
         }
-
 
         /// <summary>
         /// Generates Kusto Connection String based on 'AppCertificate' Authentication Mode.
@@ -152,8 +184,7 @@ namespace QuickStart
         /// <param name="applicationId">Given application id</param>
         /// <param name="tenantId">Given tenant id</param>
         /// <returns>AppCertificate Kusto Connection String</returns>
-        public static KustoConnectionStringBuilder CreateAppCertificateConnectionString(string clusterUrl, string certificatePath, string certificatePassword,
-            string applicationId, string tenantId)
+        public static KustoConnectionStringBuilder CreateAppCertificateConnectionString(string clusterUrl, string certificatePath, string certificatePassword, string applicationId, string tenantId)
         {
             var missing = new[]
             {
@@ -162,8 +193,7 @@ namespace QuickStart
                 (name: nameof(applicationId), value: tenantId),
             }.Where(item => string.IsNullOrWhiteSpace(item.value)).ToArray();
             if (missing.Any())
-                ErrorHandler($"Missing the following required fields in configuration file in order to authenticate using a certificate: " +
-                             $"{string.Join(", ", missing.Select(item => item.name))}");
+                ErrorHandler($"Missing the following required fields in configuration file in order to authenticate using a certificate: {string.Join(", ", missing.Select(item => item.name))}");
 
 
             var appId = Environment.GetEnvironmentVariable("APP_ID");
@@ -193,7 +223,7 @@ namespace QuickStart
                 {
                     ErrorHandler($"Failed to load public certificate file from {publicCertFilePath}", e);
                 }
-                // return new KustoConnectionStringBuilder(clusterUrl).WithAadApplicationCertificateAuthentication();
+                return new KustoConnectionStringBuilder(clusterUrl).WithAadApplicationCertificateAuthentication();
             }
 
 
@@ -287,8 +317,7 @@ namespace QuickStart
                 var clientRequestProperties = CreateClientRequestProperties("CS_SampleApp_Query");
                 var result = (await queryClient.ExecuteQueryAsync(configDatabaseName, query, clientRequestProperties)).ToJObjects().ToArray();
 
-                // Tip: Actual implementations wouldn't generally print the response from a query. We print here to demonstrate what a sample of the response
-                // looks like.
+                // Tip: Actual implementations wouldn't generally print the response from a query. We print here to demonstrate what a sample of the response looks like.
                 Console.WriteLine($"Response from executed query '{query}':\n--------------------");
                 var firstRow = result[0];
                 foreach (var item in firstRow.Properties())
@@ -322,8 +351,7 @@ namespace QuickStart
         /// <param name="dataFormat">Given data format</param>
         /// <param name="mappingName">Desired mapping name</param>
         /// <returns>KustoIngestionProperties object</returns>
-        public static KustoIngestionProperties CreateIngestionProperties(string configDatabaseName, string configTableName, DataSourceFormat dataFormat,
-            string mappingName)
+        public static KustoIngestionProperties CreateIngestionProperties(string configDatabaseName, string configTableName, DataSourceFormat dataFormat, string mappingName)
         {
             var kustoIngestionProperties = new KustoIngestionProperties()
             {
@@ -345,8 +373,7 @@ namespace QuickStart
         /// <param name="filePath">File path</param>
         /// <param name="dataFormat">Given data format</param>
         /// <param name="mappingName">Desired mapping name</param>
-        public static async Task IngestFromFile(IKustoIngestClient ingestClient, string configDatabaseName, string configTableName, string filePath,
-            DataSourceFormat dataFormat, string mappingName)
+        public static async Task IngestFromFile(IKustoIngestClient ingestClient, string configDatabaseName, string configTableName, string filePath, DataSourceFormat dataFormat, string mappingName)
         {
             var ingestionProperties = CreateIngestionProperties(configDatabaseName, configTableName, dataFormat, mappingName);
 
@@ -374,8 +401,7 @@ namespace QuickStart
         /// <param name="blobUri">Blob Uri</param>
         /// <param name="dataFormat">Given data format</param>
         /// <param name="mappingName">Desired mapping name</param>
-        public static async Task IngestFromBlobAsync(IKustoIngestClient ingestClient, string configDatabaseName, string configTableName, string blobUri,
-            DataSourceFormat dataFormat, string mappingName)
+        public static async Task IngestFromBlobAsync(IKustoIngestClient ingestClient, string configDatabaseName, string configTableName, string blobUri, DataSourceFormat dataFormat, string mappingName)
         {
             var ingestionProperties = CreateIngestionProperties(configDatabaseName, configTableName, dataFormat, mappingName);
 
@@ -391,9 +417,7 @@ namespace QuickStart
         /// </summary>
         public static async Task WaitForIngestionToComplete(int WaitForIngestSeconds)
         {
-            Console.WriteLine(
-                $"Sleeping {WaitForIngestSeconds} seconds for queued ingestion to complete. Note: This may take longer depending on the file size " +
-                $"and ingestion batching policy.");
+            Console.WriteLine($"Sleeping {WaitForIngestSeconds} seconds for queued ingestion to complete. Note: This may take longer depending on the file size and ingestion batching policy.");
             Console.WriteLine();
             Console.WriteLine();
 
@@ -426,8 +450,5 @@ namespace QuickStart
 
             Environment.Exit(-1);
         }
-
     }
-
-
 }
