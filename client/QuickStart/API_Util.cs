@@ -82,6 +82,7 @@ namespace QuickStart
     /// </summary>
     public static class Util
     {
+        private const string MgmtPrefix = ".";
         /// <summary>
         /// Loads JSON configuration file, and sets the metadata in place. 
         /// </summary>
@@ -147,10 +148,7 @@ namespace QuickStart
                     // Learn More: For information about how to procure an AAD Application,
                     // see: https://docs.microsoft.com/azure/data-explorer/provision-azure-ad-app
                     // TODO (config - optional): App ID & tenant, and App Key to authenticate with
-                    return new KustoConnectionStringBuilder(clusterUrl).WithAadApplicationKeyAuthentication(
-                        Environment.GetEnvironmentVariable("APP_ID"),
-                        Environment.GetEnvironmentVariable("APP_KEY"),
-                        Environment.GetEnvironmentVariable("APP_TENANT"));
+                    return new KustoConnectionStringBuilder(clusterUrl).WithAadApplicationKeyAuthentication(Environment.GetEnvironmentVariable("APP_ID"), Environment.GetEnvironmentVariable("APP_KEY"), Environment.GetEnvironmentVariable("APP_TENANT"));
 
                 case "AppCertificate":
                     // Authenticate using a certificate file.
@@ -195,7 +193,6 @@ namespace QuickStart
             if (missing.Any())
                 ErrorHandler($"Missing the following required fields in configuration file in order to authenticate using a certificate: {string.Join(", ", missing.Select(item => item.name))}");
 
-
             var appId = Environment.GetEnvironmentVariable("APP_ID");
             var SubjectDistinguishedName = Environment.GetEnvironmentVariable("SUBJECT_DISTINGUISHED_NAME");
             var IssuerDistinguishedName = Environment.GetEnvironmentVariable("ISSUER_DISTINGUISHED_NAME");
@@ -225,7 +222,6 @@ namespace QuickStart
                 }
                 return new KustoConnectionStringBuilder(clusterUrl).WithAadApplicationSubjectAndIssuerAuthentication(appId, SubjectDistinguishedName, IssuerDistinguishedName, tenantId);
             }
-
 
 
             X509Certificate2 certificate = null;
@@ -260,24 +256,33 @@ namespace QuickStart
         }
 
         /// <summary>
-        /// Executes Control Command using a privileged client
+        /// Executes a Command using a premade client
         /// </summary>
-        /// <param name="adminClient">Privileged client to run Control Commands</param>
+        /// <param name="client">Premade client to run Commands. can be either an adminClient or queryClient</param>
         /// <param name="configDatabaseName">DB name</param>
-        /// <param name="command">The Control Command</param>
+        /// <param name="command">The Command to execute</param>
         /// <returns>True on success, false otherwise</returns>
-        public static async Task<bool> ExecuteControlCommand(ICslAdminProvider adminClient, string configDatabaseName, string command)
+        public static async Task<bool> Execute(IDisposable client, string configDatabaseName, string command)
         {
             try
             {
-                var clientRequestProperties = CreateClientRequestProperties("CS_SampleApp_ControlCommand");
-                var result = (await adminClient.ExecuteControlCommandAsync(configDatabaseName, command, clientRequestProperties)).ToJObjects().ToArray();
+                Newtonsoft.Json.Linq.JObject[] result;
+                if (command.StartsWith(MgmtPrefix)) // All control commands start with a specific prefix (usually '.') - and require a different client and scope to execute with.
+                {
+                    var clientRequestProperties = CreateClientRequestProperties("CS_SampleApp_ControlCommand");
+                    ICslAdminProvider adminClient = (ICslAdminProvider)client;
+                    result = (await adminClient.ExecuteControlCommandAsync(configDatabaseName, command, clientRequestProperties)).ToJObjects().ToArray();
+                }
+                else
+                {
+                    var clientRequestProperties = CreateClientRequestProperties("CS_SampleApp_Query");
+                    ICslQueryProvider queryClient = (ICslQueryProvider)client;
+                    result = (await queryClient.ExecuteQueryAsync(configDatabaseName, command, clientRequestProperties)).ToJObjects().ToArray();
+                }
 
-                // Tip: Actual implementations wouldn't generally print the response from a control command.We print here to demonstrate what a sample of the
-                // response looks like.
-                // Moreover, there are some built-in classes for control commands under the Kusto.Data namespace -for example,
-                // Kusto.Data.TablesShowCommandResult maps to the result of the ".show tables" commands
-                Console.WriteLine($"Response from executed control command '{command}':\n--------------------");
+                // Tip: Actual implementations wouldn't generally print the response from a control command or a query .We print here to demonstrate what a sample of the response looks like.
+                // Moreover, there are some built-in classes for control commands under the Kusto.Data namespace -for example, Kusto.Data.TablesShowCommandResult maps to the result of the ".show tables" commands
+                Console.WriteLine($"Response from executed command '{command}':\n--------------------");
                 var firstRow = result[0];
                 foreach (var item in firstRow.Properties())
                     Console.WriteLine(item);
@@ -289,53 +294,13 @@ namespace QuickStart
                 var err = ex.GetType().ToString();
                 string msg;
                 if (err == "KustoClientException")
-                    msg = "Client error while trying to execute control command '{0}' on database '{1}'";
+                    msg = "Client error while trying to execute command '{0}' on database '{1}'";
                 else if (err == "KustoClientException")
-                    msg = "Server error while trying to execute control command '{0}' on database '{1}'";
+                    msg = "Server error while trying to execute command '{0}' on database '{1}'";
                 else
-                    msg = "Unknown error while trying to execute control command '{0}' on database '{1}'";
+                    msg = "Unknown error while trying to execute command '{0}' on database '{1}'";
 
                 Console.WriteLine(msg, command, configDatabaseName);
-                Console.WriteLine(ex);
-            }
-
-            return false;
-        }
-
-        /// <summary>
-        /// Executes a query using a query client
-        /// </summary>
-        /// <param name="queryClient">Client to run queries</param>
-        /// <param name="configDatabaseName">DB name</param>
-        /// <param name="query">The query</param>
-        /// <returns>True on success, false otherwise</returns>
-        public static async Task<bool> ExecuteQuery(ICslQueryProvider queryClient, string configDatabaseName, string query)
-        {
-            try
-            {
-                var clientRequestProperties = CreateClientRequestProperties("CS_SampleApp_Query");
-                var result = (await queryClient.ExecuteQueryAsync(configDatabaseName, query, clientRequestProperties)).ToJObjects().ToArray();
-
-                // Tip: Actual implementations wouldn't generally print the response from a query. We print here to demonstrate what a sample of the response looks like.
-                Console.WriteLine($"Response from executed query '{query}':\n--------------------");
-                var firstRow = result[0];
-                foreach (var item in firstRow.Properties())
-                    Console.WriteLine(item);
-
-                return true;
-            }
-            catch (Exception ex)
-            {
-                var err = ex.GetType().ToString();
-                string msg;
-                if (err == "KustoClientException")
-                    msg = "Client error while trying to execute control command '{0}' on database '{1}'";
-                else if (err == "KustoClientException")
-                    msg = "Server error while trying to execute control command '{0}' on database '{1}'";
-                else
-                    msg = "Unknown error while trying to execute control command '{0}' on database '{1}'";
-
-                Console.WriteLine(msg, query, configDatabaseName);
                 Console.WriteLine(ex);
             }
 
@@ -407,7 +372,11 @@ namespace QuickStart
             // Tip 1: For optimal ingestion batching and performance, specify the uncompressed data size in the file descriptor instead of the default below of
             // 0. Otherwise, the service will determine the file size, requiring an additional s2s call, and may not be accurate for compressed files.
             // Tip 2: To correlate between ingestion operations in your applications and Kusto, set the source ID and log it somewhere
-            var sourceOptions = new StorageSourceOptions() { Size = 0, SourceId = Guid.NewGuid() };
+            var sourceOptions = new StorageSourceOptions()
+            {
+                Size = 0,
+                SourceId = Guid.NewGuid()
+            };
             await ingestClient.IngestFromStorageAsync(blobUri, ingestionProperties, sourceOptions);
         }
 

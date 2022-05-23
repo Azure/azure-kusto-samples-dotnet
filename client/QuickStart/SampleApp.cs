@@ -41,9 +41,9 @@ namespace QuickStart
             var kustoConnectionString = Util.GenerateConnectionString(config.KustoUri, config.AuthenticationMode, config.CertificatePath, config.CertificatePassword, config.ApplicationId, config.TenantId);
             var ingestConnectionString = Util.GenerateConnectionString(config.IngestUri, config.AuthenticationMode, config.CertificatePath, config.CertificatePassword, config.ApplicationId, config.TenantId);
 
-            using (var adminClient = KustoClientFactory.CreateCslAdminProvider(kustoConnectionString))
-            using (var queryProvider = KustoClientFactory.CreateCslQueryProvider(kustoConnectionString))
-            using (var ingestClient = KustoIngestFactory.CreateQueuedIngestClient(ingestConnectionString))
+            using (var adminClient = KustoClientFactory.CreateCslAdminProvider(kustoConnectionString)) // For control commands
+            using (var queryProvider = KustoClientFactory.CreateCslQueryProvider(kustoConnectionString)) // For regular querying
+            using (var ingestClient = KustoIngestFactory.CreateQueuedIngestClient(ingestConnectionString)) // For ingestion
             {
                 await CreateAlterOrQueryTable(config, adminClient, queryProvider);
                 if (config.IngestData)
@@ -95,7 +95,7 @@ namespace QuickStart
             // You can also use the CslCommandGenerator class to build commands: string command = CslCommandGenerator.GenerateTableAlterMergeCommand();
             var command = $".alter-merge table {configTableName} {configTableSchema}";
 
-            if (!await Util.ExecuteControlCommand(adminClient, configDatabaseName, command))
+            if (!await Util.Execute(adminClient, configDatabaseName, command))
                 Util.ErrorHandler($"Failed to alter table using command '{command}'");
         }
 
@@ -109,7 +109,7 @@ namespace QuickStart
         {
             WaitForUserToProceed($"Get existing row count in '{configDatabaseName}.{configTableName}'");
             var query = $"{configTableName} | count";
-            if (!await Util.ExecuteQuery(queryClient, configDatabaseName, query))
+            if (!await Util.Execute(queryClient, configDatabaseName, query))
                 Util.ErrorHandler($"Failed to execute query: '{query}'");
         }
 
@@ -128,7 +128,7 @@ namespace QuickStart
             // You can also use the CslCommandGenerator class to build commands: string command = CslCommandGenerator.GenerateTableCreateCommand();
             var command = $".create table {configTableName} {configTableSchema}";
 
-            if (!await Util.ExecuteControlCommand(adminClient, configDatabaseName, command))
+            if (!await Util.Execute(adminClient, configDatabaseName, command))
                 Util.ErrorHandler($"Failed to create table or validate it exists using command '{command}'");
 
             // Learn More: Kusto batches data for ingestion efficiency. The default batching policy ingests data when one of the following conditions are met:
@@ -161,7 +161,7 @@ namespace QuickStart
 
             WaitForUserToProceed($"Alter the batching policy for table '{configDatabaseName}.{configTableName}'");
             var command = $".alter table {configTableName} policy ingestionbatching @'{batchingPolicy}'";
-            if (!await Util.ExecuteControlCommand(adminClient, configDatabaseName, command))
+            if (!await Util.Execute(adminClient, configDatabaseName, command))
                 Console.WriteLine("Failed to alter the ingestion policy, which could be the result of insufficient permissions. The sample will still run, " +
                                   "though ingestion will be delayed for up to 5 minutes.");
         }
@@ -216,7 +216,7 @@ namespace QuickStart
             var mappingCommand =
                 $".create-or-alter table {configTableName} ingestion {ingestionMappingKind} mapping '{mappingName}' '{mappingValue}'";
 
-            if (!await Util.ExecuteControlCommand(adminClient, configDatabaseName, mappingCommand))
+            if (!await Util.Execute(adminClient, configDatabaseName, mappingCommand))
                 Util.ErrorHandler(
                     $"Failed to create a '{ingestionMappingKind}' mapping reference named '{mappingName}'. Skipping this ingestion.");
 
@@ -272,13 +272,13 @@ namespace QuickStart
             WaitForUserToProceed($"Get {optionalPostIngestionPrompt}row count for '{configDatabaseName}.{configTableName}':");
 
             var rowQuery = $"{configTableName} | count";
-            if (!await Util.ExecuteQuery(queryProvider, configDatabaseName, rowQuery))
+            if (!await Util.Execute(queryProvider, configDatabaseName, rowQuery))
                 Util.ErrorHandler($"Failed to execute query: '{rowQuery}'");
 
             WaitForUserToProceed($"Get sample (2 records) of {optionalPostIngestionPrompt}data:");
 
             var sampleQuery = $"{configTableName} | take 2";
-            if (!await Util.ExecuteQuery(queryProvider, configDatabaseName, sampleQuery))
+            if (!await Util.Execute(queryProvider, configDatabaseName, sampleQuery))
                 Util.ErrorHandler($"Failed to execute query: '{sampleQuery}'");
         }
 
