@@ -197,9 +197,9 @@ namespace QuickStart
 
 
             var appId = Environment.GetEnvironmentVariable("APP_ID");
-            var appTenant = Environment.GetEnvironmentVariable("APP_TENANT");
+            var SubjectDistinguishedName = Environment.GetEnvironmentVariable("SUBJECT_DISTINGUISHED_NAME");
+            var IssuerDistinguishedName = Environment.GetEnvironmentVariable("ISSUER_DISTINGUISHED_NAME");
             var privateKeyPemFilePath = Environment.GetEnvironmentVariable("PRIVATE_KEY_PEM_FILE_PATH");
-            var certThumbprint = Environment.GetEnvironmentVariable("CERT_THUMBPRINT");
             var publicCertFilePath = Environment.GetEnvironmentVariable("PUBLIC_CERT_FILE_PATH");
             string publicCertificate;
             string pemCertificate;
@@ -223,7 +223,7 @@ namespace QuickStart
                 {
                     ErrorHandler($"Failed to load public certificate file from {publicCertFilePath}", e);
                 }
-                return new KustoConnectionStringBuilder(clusterUrl).WithAadApplicationCertificateAuthentication();
+                return new KustoConnectionStringBuilder(clusterUrl).WithAadApplicationSubjectAndIssuerAuthentication(appId, SubjectDistinguishedName, IssuerDistinguishedName, tenantId);
             }
 
 
@@ -234,8 +234,7 @@ namespace QuickStart
             else
                 ErrorHandler("Missing Certificate path!");
 
-            return new KustoConnectionStringBuilder(clusterUrl).WithAadApplicationCertificateAuthentication(applicationId, certificate, tenantId,
-                sendX5c: true);
+            return new KustoConnectionStringBuilder(clusterUrl).WithAadApplicationCertificateAuthentication(applicationId, certificate, tenantId, sendX5c: true);
         }
 
         /// <summary>
