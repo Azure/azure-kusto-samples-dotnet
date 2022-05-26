@@ -293,7 +293,7 @@ namespace QuickStart
                 string msg;
                 if (err == "KustoClientException")
                     msg = "Client error while trying to execute command '{0}' on database '{1}'";
-                else if (err == "KustoClientException")
+                else if (err == "KustoServiceException")
                     msg = "Server error while trying to execute command '{0}' on database '{1}'";
                 else
                     msg = "Unknown error while trying to execute command '{0}' on database '{1}'";
@@ -349,7 +349,23 @@ namespace QuickStart
             if (isFile)
                 sourceOptions.IsLocalFileSystem = true;
 
-            await ingestClient.IngestFromStorageAsync(uri, ingestionProperties, sourceOptions);
+            try
+            {
+                await ingestClient.IngestFromStorageAsync(uri, ingestionProperties, sourceOptions);
+            }
+            catch (Exception ex)
+            {
+                var err = ex.GetType().ToString();
+                string msg;
+                if (err == "IngestClientException")
+                    msg = "Client error while trying to ingest from '{0}'";
+                else if (err == "KustoServiceException")
+                    msg = "Server error while trying to ingest from '{0}'";
+                else
+                    msg = "Unknown error while trying to ingest from '{0}'";
+
+                ErrorHandler(string.Format(msg, uri), ex);
+            }
         }
 
         /// <summary>

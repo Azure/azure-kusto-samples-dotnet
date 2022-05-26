@@ -50,7 +50,7 @@ namespace QuickStart
 
                 // Ingestion phase
                 if (config.IngestData)
-                    await IngestionHandlerAsync(config, adminClient, ingestClient);
+                    await IngestionAsync(config, adminClient, ingestClient);
 
 
                 // Post-Ingestion querying
@@ -168,12 +168,12 @@ namespace QuickStart
         }
 
         /// <summary>
-        /// Entire ingestion process.
+        /// Second phase - The ingestion process.
         /// </summary>
         /// <param name="config">ConfigJson object</param>
         /// <param name="adminClient">Privileged client to run Control Commands</param>
         /// <param name="ingestClient">Client to ingest data</param>
-        private static async Task IngestionHandlerAsync(ConfigJson config, ICslAdminProvider adminClient, IKustoIngestClient ingestClient)
+        private static async Task IngestionAsync(ConfigJson config, ICslAdminProvider adminClient, IKustoIngestClient ingestClient)
         {
             foreach (var file in config.Data)
             {
@@ -182,13 +182,12 @@ namespace QuickStart
 
                 // Tip: This is generally a one-time configuration. Learn More: For more information about providing inline mappings and mapping references,
                 // see: https://docs.microsoft.com/azure/data-explorer/kusto/management/mappings
-                if (!await CreateIngestionMappings(bool.Parse(file["useExistingMapping"]), adminClient, config.DatabaseName, config.TableName,
-                        mappingName, file["mappingValue"], dataFormat))
+                if (!await CreateIngestionMappingsAsync(bool.Parse(file["useExistingMapping"]), adminClient, config.DatabaseName, config.TableName, mappingName, file["mappingValue"], dataFormat))
                     continue;
 
                 // Learn More: For more information about ingesting data to Kusto in C#,
                 // see: https://docs.microsoft.com/en-us/azure/data-explorer/net-sdk-ingest-data
-                await IngestAsync(file, dataFormat, ingestClient, config.DatabaseName, config.TableName, mappingName);
+                await IngestDataAsync(file, dataFormat, ingestClient, config.DatabaseName, config.TableName, mappingName);
             }
 
             await Util.WaitForIngestionToCompleteAsync(config.WaitForIngestSeconds);
@@ -205,7 +204,7 @@ namespace QuickStart
         /// <param name="mappingValue">Values of the new mappings to create</param>
         /// <param name="dataFormat">Given data format</param>
         /// <returns>True if Ingestion Mappings exists (whether by us, or the already existing one)</returns>
-        private static async Task<bool> CreateIngestionMappings(bool useExistingMapping, ICslAdminProvider adminClient, string configDatabaseName, string configTableName, string mappingName, string mappingValue, DataSourceFormat dataFormat)
+        private static async Task<bool> CreateIngestionMappingsAsync(bool useExistingMapping, ICslAdminProvider adminClient, string configDatabaseName, string configTableName, string mappingName, string mappingValue, DataSourceFormat dataFormat)
         {
             if (useExistingMapping || mappingValue is null)
                 return true;
@@ -214,14 +213,18 @@ namespace QuickStart
             WaitForUserToProceed($"Create a '{ingestionMappingKind}' mapping reference named '{mappingName}'");
 
             mappingName = mappingName ?? "DefaultQuickstartMapping" + Guid.NewGuid().ToString().Substring(0, 5);
-            var mappingCommand =
-                $".create-or-alter table {configTableName} ingestion {ingestionMappingKind} mapping '{mappingName}' '{mappingValue}'";
+            var mappingCommand = $".create-or-alter table {configTableName} ingestion {ingestionMappingKind} mapping '{mappingName}' '{mappingValue}'";
 
-            if (!await Util.ExecuteAsync(adminClient, configDatabaseName, mappingCommand))
-                Util.ErrorHandler(
-                    $"Failed to create a '{ingestionMappingKind}' mapping reference named '{mappingName}'. Skipping this ingestion.");
+            try
+            {
+                await Util.ExecuteAsync(adminClient, configDatabaseName, mappingCommand);
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
 
-            return true;
         }
 
         /// <summary>
@@ -233,7 +236,7 @@ namespace QuickStart
         /// <param name="configDatabaseName">DB name</param>
         /// <param name="configTableName">Table name</param>
         /// <param name="mappingName">Desired mapping name</param>
-        private static async Task IngestAsync(IReadOnlyDictionary<string, string> dataSource, DataSourceFormat dataFormat, IKustoIngestClient ingestClient, string configDatabaseName, string configTableName, string mappingName)
+        private static async Task IngestDataAsync(IReadOnlyDictionary<string, string> dataSource, DataSourceFormat dataFormat, IKustoIngestClient ingestClient, string configDatabaseName, string configTableName, string mappingName)
         {
             var sourceType = dataSource["sourceType"].ToLower();
             var sourceUri = dataSource["dataSourceUri"];
@@ -243,8 +246,7 @@ namespace QuickStart
             // If the json contains whitespace formatting, use SINGLEJSON. In this case, only one data row json object is allowed per file.
             dataFormat = dataFormat == DataSourceFormat.json ? DataSourceFormat.multijson : dataFormat;
 
-            // Tip: Kusto's C# SDK can ingest data from files, blobs and open streams.See the SDK's samples and the E2E tests in azure.kusto.ingest for
-            // additional references.
+            // Tip: Kusto's C# SDK can ingest data from files, blobs and open streams.See the SDK's samples and the E2E tests in azure.kusto.ingest for additional references.
             switch (sourceType)
             {
                 case "localfilesource":
