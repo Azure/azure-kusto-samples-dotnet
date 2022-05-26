@@ -125,7 +125,6 @@ namespace QuickStart
         /// <param name="configDatabaseName">DB name</param>
         /// <param name="configTableName">Table name</param>
         /// <param name="configTableSchema">Table Schema</param>
-        /// <param name="batchingPolicy">Ingestion batching policy</param>
         private static async Task CreateNewTableAsync(ICslAdminProvider adminClient, string configDatabaseName, string configTableName, string configTableSchema)
         {
             // You can also use the CslCommandGenerator class to build commands: string command = CslCommandGenerator.GenerateTableCreateCommand();
