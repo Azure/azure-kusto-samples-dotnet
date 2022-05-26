@@ -262,7 +262,7 @@ namespace QuickStart
         /// <param name="configDatabaseName">DB name</param>
         /// <param name="command">The Command to execute</param>
         /// <returns>True on success, false otherwise</returns>
-        public static async Task<bool> ExecuteAsync(IDisposable client, string configDatabaseName, string command)
+        public static async Task ExecuteAsync(IDisposable client, string configDatabaseName, string command)
         {
             try
             {
@@ -286,8 +286,6 @@ namespace QuickStart
                 var firstRow = result[0];
                 foreach (var item in firstRow.Properties())
                     Console.WriteLine(item);
-
-                return true;
             }
             catch (Exception ex)
             {
@@ -300,11 +298,8 @@ namespace QuickStart
                 else
                     msg = "Unknown error while trying to execute command '{0}' on database '{1}'";
 
-                Console.WriteLine(msg, command, configDatabaseName);
-                Console.WriteLine(ex);
+                ErrorHandler(string.Format(msg, command, configDatabaseName), ex);
             }
-
-            return false;
         }
 
         /// <summary>

@@ -21,6 +21,7 @@ namespace QuickStart
         // If this quickstart app was downloaded from OneClick, kusto_sample_config.json should be pre-populated with your cluster's details.
         // If this quickstart app was downloaded from GitHub, edit kusto_sample_config.json and modify the cluster URL and database fields appropriately.
         private const string ConfigFileName = @"kusto_sample_config.json";
+
         #endregion
         private static int _step = 1;
         private static bool _WaitForUser;
@@ -45,9 +46,14 @@ namespace QuickStart
             using (var queryProvider = KustoClientFactory.CreateCslQueryProvider(kustoConnectionString)) // For regular querying
             using (var ingestClient = KustoIngestFactory.CreateQueuedIngestClient(ingestConnectionString)) // For ingestion
             {
-                await CreateAlterOrQueryTable(config, adminClient, queryProvider);
+                await PreIngestionQueryingAsync(config, adminClient, queryProvider);
+
+                // Ingestion phase
                 if (config.IngestData)
                     await IngestionHandlerAsync(config, adminClient, ingestClient);
+
+
+                // Post-Ingestion querying
                 if (config.QueryData)
                     await ExecuteValidationQueries(queryProvider, config.DatabaseName, config.TableName, config.IngestData);
             }
@@ -56,29 +62,51 @@ namespace QuickStart
         }
 
         /// <summary>
-        /// Basic Table Commands - including AlterMerge Existing Table and Create Table control commands, and Existing Number Of Rows query.
+        /// First phase, pre ingestion - will reach the provided DB with several control commands and a query based on the configuration file.
         /// </summary>
-        /// <param name="config">ConfigJson object</param>
+        /// <param name="config">ConfigJson object containing the SampleApp configuration</param>
         /// <param name="adminClient">Privileged client to run Control Commands</param>
         /// <param name="queryProvider">Client to run queries</param>
-        private static async Task CreateAlterOrQueryTable(ConfigJson config, ICslAdminProvider adminClient, ICslQueryProvider queryProvider)
+        private static async Task PreIngestionQueryingAsync(ConfigJson config, ICslAdminProvider adminClient, ICslQueryProvider queryProvider)
         {
             if (config.UseExistingTable)
             {
                 if (config.AlterTable)
+                {
                     // Tip: Usually table was originally created with a schema appropriate for the data being ingested, so this wouldn't be needed.
                     // Learn More: For more information about altering table schemas, see:
                     // https://docs.microsoft.com/azure/data-explorer/kusto/management/alter-table-command
-                    await AlterMergeExistingTableToProvidedSchema(adminClient, config.DatabaseName, config.TableName, config.TableSchema);
-
-                if (config.QueryData)
-                    // Learn More: For more information about Kusto Query Language (KQL), see: https://docs.microsoft.com/azure/data-explorer/write-queries
-                    await QueryExistingNumberOfRows(queryProvider, config.DatabaseName, config.TableName);
+                    WaitForUserToProceed($"Alter-merge existing table '{config.DatabaseName}.{config.TableName}' to align with the provided schema");
+                    await AlterMergeExistingTableToProvidedSchemaAsync(adminClient, config.DatabaseName, config.TableName, config.TableSchema);
+                }
             }
             else
+            {
                 // Tip: This is generally a one-time configuration
                 // Learn More: For more information about creating tables, see: https://docs.microsoft.com/azure/data-explorer/one-click-table
-                await CreateNewTable(adminClient, config.DatabaseName, config.TableName, config.TableSchema, config.BatchingPolicy);
+                WaitForUserToProceed($"Create table '{config.DatabaseName}.{config.TableName}'");
+                await CreateNewTableAsync(adminClient, config.DatabaseName, config.TableName, config.TableSchema);
+            }
+
+            // Learn More: Kusto batches data for ingestion efficiency. The default batching policy ingests data when one of the following conditions are met:
+            //   1) More than 1,000 files were queued for ingestion for the same table by the same user
+            //   2) More than 1GB of data was queued for ingestion for the same table by the same user
+            //   3) More than 5 minutes have passed since the first file was queued for ingestion for the same table by the same user
+            //  For more information about customizing the ingestion batching policy, see:
+            // https://docs.microsoft.com/azure/data-explorer/kusto/management/batchingpolicy
+            // TODO: Change if needed. Disabled to prevent an existing batching policy from being unintentionally changed
+            if (false && !String.IsNullOrEmpty(config.BatchingPolicy))
+            {
+                WaitForUserToProceed($"Alter the batching policy for table '{config.DatabaseName}.{config.TableName}'");
+                await AlterBatchingPolicyAsync(adminClient, config.DatabaseName, config.TableName, config.BatchingPolicy);
+            }
+
+            if (config.QueryData)
+            {
+                WaitForUserToProceed($"Get existing row count in '{config.DatabaseName}.{config.TableName}'");
+                await QueryExistingNumberOfRowsAsync(queryProvider, config.DatabaseName, config.TableName);
+            }
+
         }
 
         /// <summary>
@@ -88,29 +116,11 @@ namespace QuickStart
         /// <param name="configDatabaseName">DB name</param>
         /// <param name="configTableName">Table name</param>
         /// <param name="configTableSchema">Table Schema</param>
-        private static async Task AlterMergeExistingTableToProvidedSchema(ICslAdminProvider adminClient, string configDatabaseName, string configTableName, string configTableSchema)
+        private static async Task AlterMergeExistingTableToProvidedSchemaAsync(ICslAdminProvider adminClient, string configDatabaseName, string configTableName, string configTableSchema)
         {
-            WaitForUserToProceed($"Alter-merge existing table '{configDatabaseName}.{configTableName}' to align with the provided schema");
-
             // You can also use the CslCommandGenerator class to build commands: string command = CslCommandGenerator.GenerateTableAlterMergeCommand();
             var command = $".alter-merge table {configTableName} {configTableSchema}";
-
-            if (!await Util.ExecuteAsync(adminClient, configDatabaseName, command))
-                Util.ErrorHandler($"Failed to alter table using command '{command}'");
-        }
-
-        /// <summary>
-        /// Queries the data on the existing number of rows.
-        /// </summary>
-        /// <param name="queryClient">Client to run queries</param>
-        /// <param name="configDatabaseName">DB name</param>
-        /// <param name="configTableName">Table name</param>
-        private static async Task QueryExistingNumberOfRows(ICslQueryProvider queryClient, string configDatabaseName, string configTableName)
-        {
-            WaitForUserToProceed($"Get existing row count in '{configDatabaseName}.{configTableName}'");
-            var query = $"{configTableName} | count";
-            if (!await Util.ExecuteAsync(queryClient, configDatabaseName, query))
-                Util.ErrorHandler($"Failed to execute query: '{query}'");
+            await Util.ExecuteAsync(adminClient, configDatabaseName, command);
         }
 
         /// <summary>
@@ -121,27 +131,11 @@ namespace QuickStart
         /// <param name="configTableName">Table name</param>
         /// <param name="configTableSchema">Table Schema</param>
         /// <param name="batchingPolicy">Ingestion batching policy</param>
-        private static async Task CreateNewTable(ICslAdminProvider adminClient, string configDatabaseName, string configTableName, string configTableSchema, string batchingPolicy)
+        private static async Task CreateNewTableAsync(ICslAdminProvider adminClient, string configDatabaseName, string configTableName, string configTableSchema)
         {
-            WaitForUserToProceed($"Create table '{configDatabaseName}.{configTableName}'");
-
             // You can also use the CslCommandGenerator class to build commands: string command = CslCommandGenerator.GenerateTableCreateCommand();
             var command = $".create table {configTableName} {configTableSchema}";
-
-            if (!await Util.ExecuteAsync(adminClient, configDatabaseName, command))
-                Util.ErrorHandler($"Failed to create table or validate it exists using command '{command}'");
-
-            // Learn More: Kusto batches data for ingestion efficiency. The default batching policy ingests data when one of the following conditions are met:
-            //   1) More than 1,000 files were queued for ingestion for the same table by the same user
-            //   2) More than 1GB of data was queued for ingestion for the same table by the same user
-            //   3) More than 5 minutes have passed since the first file was queued for ingestion for the same table by the same user
-            //  For more information about customizing the ingestion batching policy, see:
-            // https://docs.microsoft.com/azure/data-explorer/kusto/management/batchingpolicy
-
-            // TODO: Change if needed.
-            // Disabled to prevent an existing batching policy from being unintentionally changed
-            if (false && !String.IsNullOrEmpty(batchingPolicy))
-                await AlterBatchingPolicy(adminClient, configDatabaseName, configTableName, batchingPolicy);
+            await Util.ExecuteAsync(adminClient, configDatabaseName, command);
         }
 
         /// <summary>
@@ -151,19 +145,26 @@ namespace QuickStart
         /// <param name="configDatabaseName">DB name</param>
         /// <param name="configTableName">Table name</param>
         /// <param name="batchingPolicy">Ingestion batching policy</param>
-        private static async Task AlterBatchingPolicy(ICslAdminProvider adminClient, string configDatabaseName, string configTableName, string batchingPolicy)
+        private static async Task AlterBatchingPolicyAsync(ICslAdminProvider adminClient, string configDatabaseName, string configTableName, string batchingPolicy)
         {
-            // Tip 1: Though most users should be fine with the defaults, to speed up ingestion, such as during development and in this sample app, we opt to
-            // modify the default ingestion policy to ingest data after at most 10 seconds.
+            // Tip 1: Though most users should be fine with the defaults, to speed up ingestion, such as during development and in this sample app, we opt to modify the default ingestion policy to ingest data after at most 10 seconds.
             // Tip 2: This is generally a one-time configuration.
-            // Tip 3: You can also skip the batching for some files using the Flush-Immediately property, though this option should be used with care as it is
-            // inefficient.
-
-            WaitForUserToProceed($"Alter the batching policy for table '{configDatabaseName}.{configTableName}'");
+            // Tip 3: You can also skip the batching for some files using the Flush-Immediately property, though this option should be used with care as it is inefficient.
             var command = $".alter table {configTableName} policy ingestionbatching @'{batchingPolicy}'";
-            if (!await Util.ExecuteAsync(adminClient, configDatabaseName, command))
-                Console.WriteLine("Failed to alter the ingestion policy, which could be the result of insufficient permissions. The sample will still run, " +
-                                  "though ingestion will be delayed for up to 5 minutes.");
+            await Util.ExecuteAsync(adminClient, configDatabaseName, command);
+            // If it failed to alter the ingestion policy - it could be the result of insufficient permissions. The sample will still run, though ingestion will be delayed for up to 5 minutes.
+        }
+
+        /// <summary>
+        /// Queries the data on the existing number of rows.
+        /// </summary>
+        /// <param name="queryClient">Client to run queries</param>
+        /// <param name="configDatabaseName">DB name</param>
+        /// <param name="configTableName">Table name</param>
+        private static async Task QueryExistingNumberOfRowsAsync(ICslQueryProvider queryClient, string configDatabaseName, string configTableName)
+        {
+            var query = $"{configTableName} | count";
+            await Util.ExecuteAsync(queryClient, configDatabaseName, query);
         }
 
         /// <summary>
