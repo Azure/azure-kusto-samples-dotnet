@@ -16,13 +16,11 @@ namespace QuickStart
     /// </summary>
     public static class KustoSampleApp
     {
-        #region Constans
+
         // TODO (config):
         // If this quickstart app was downloaded from OneClick, kusto_sample_config.json should be pre-populated with your cluster's details.
         // If this quickstart app was downloaded from GitHub, edit kusto_sample_config.json and modify the cluster URL and database fields appropriately.
         private const string ConfigFileName = @"kusto_sample_config.json";
-
-        #endregion
         private static int _step = 1;
         private static bool _WaitForUser;
 
@@ -48,14 +46,11 @@ namespace QuickStart
             {
                 await PreIngestionQueryingAsync(config, adminClient, queryProvider);
 
-                // Ingestion phase
                 if (config.IngestData)
                     await IngestionAsync(config, adminClient, ingestClient);
 
-
-                // Post-Ingestion querying
                 if (config.QueryData)
-                    await ExecuteValidationQueries(queryProvider, config.DatabaseName, config.TableName, config.IngestData);
+                    await PostIngestionQueryingAsync(queryProvider, config.DatabaseName, config.TableName, config.IngestData);
             }
 
             Console.WriteLine("\nKusto sample app done");
@@ -168,6 +163,18 @@ namespace QuickStart
         }
 
         /// <summary>
+        /// Queries the first two rows of the table.
+        /// </summary>
+        /// <param name="queryClient">Client to run queries</param>
+        /// <param name="configDatabaseName">DB name</param>
+        /// <param name="configTableName">Table name</param>
+        private static async Task QueryFirstTwoRowsAsync(ICslQueryProvider queryClient, string configDatabaseName, string configTableName)
+        {
+            var query = $"{configTableName} | take 2";
+            await Util.ExecuteAsync(queryClient, configDatabaseName, query);
+        }
+
+        /// <summary>
         /// Second phase - The ingestion process.
         /// </summary>
         /// <param name="config">ConfigJson object</param>
@@ -262,26 +269,21 @@ namespace QuickStart
         }
 
         /// <summary>
-        /// End-Of-Script simple queries, to validate the hopefully successful run of the script.  
+        /// Third and final phase - simple queries to validate the hopefully successful run of the script.  
         /// </summary>
         /// <param name="queryProvider">Client to run queries</param>
         /// <param name="configDatabaseName">DB Name</param>
         /// <param name="configTableName">Table Name</param>
         /// <param name="configIngestData">Flag noting whether any data was ingested by the script</param>
-        private static async Task ExecuteValidationQueries(ICslQueryProvider queryProvider, string configDatabaseName, string configTableName, bool configIngestData)
+        private static async Task PostIngestionQueryingAsync(ICslQueryProvider queryProvider, string configDatabaseName, string configTableName, bool configIngestData)
         {
             var optionalPostIngestionPrompt = configIngestData ? "post-ingestion " : "";
-            WaitForUserToProceed($"Get {optionalPostIngestionPrompt}row count for '{configDatabaseName}.{configTableName}':");
 
-            var rowQuery = $"{configTableName} | count";
-            if (!await Util.ExecuteAsync(queryProvider, configDatabaseName, rowQuery))
-                Util.ErrorHandler($"Failed to execute query: '{rowQuery}'");
+            WaitForUserToProceed($"Get {optionalPostIngestionPrompt}row count for '{configDatabaseName}.{configTableName}':");
+            await QueryExistingNumberOfRowsAsync(queryProvider, configDatabaseName, configTableName);
 
             WaitForUserToProceed($"Get sample (2 records) of {optionalPostIngestionPrompt}data:");
-
-            var sampleQuery = $"{configTableName} | take 2";
-            if (!await Util.ExecuteAsync(queryProvider, configDatabaseName, sampleQuery))
-                Util.ErrorHandler($"Failed to execute query: '{sampleQuery}'");
+            await QueryFirstTwoRowsAsync(queryProvider, configDatabaseName, configTableName);
         }
 
         /// <summary>
