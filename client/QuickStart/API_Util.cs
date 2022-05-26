@@ -262,7 +262,7 @@ namespace QuickStart
         /// <param name="configDatabaseName">DB name</param>
         /// <param name="command">The Command to execute</param>
         /// <returns>True on success, false otherwise</returns>
-        public static async Task<bool> Execute(IDisposable client, string configDatabaseName, string command)
+        public static async Task<bool> ExecuteAsync(IDisposable client, string configDatabaseName, string command)
         {
             try
             {
@@ -334,56 +334,33 @@ namespace QuickStart
         /// <param name="ingestClient">Client to ingest data</param>
         /// <param name="configDatabaseName">DB name</param>
         /// <param name="configTableName">Table name</param>
-        /// <param name="filePath">File path</param>
+        /// <param name="uri">Uri to ingest from</param>
         /// <param name="dataFormat">Given data format</param>
         /// <param name="mappingName">Desired mapping name</param>
-        public static async Task IngestFromFile(IKustoIngestClient ingestClient, string configDatabaseName, string configTableName, string filePath, DataSourceFormat dataFormat, string mappingName)
+        /// <param name="isFile">Flag indicating whether the uri is of a file or not.</param>
+        public static async Task IngestAsync(IKustoIngestClient ingestClient, string configDatabaseName, string configTableName, string uri, DataSourceFormat dataFormat, string mappingName, bool isFile = false)
         {
             var ingestionProperties = CreateIngestionProperties(configDatabaseName, configTableName, dataFormat, mappingName);
-
-            // Tip 1: For optimal ingestion batching and performance, specify the uncompressed data size in the file descriptor instead of the default below of
-            // 0. Otherwise, the service will determine the file size, requiring an additional s2s call, and may not be accurate for compressed files.
+            // Tip 1: For optimal ingestion batching and performance, specify the uncompressed data size in the file descriptor instead of the default below of 0. 
+            // Otherwise, the service will determine the file size, requiring an additional s2s call, and may not be accurate for compressed files.
             // Tip 2: To correlate between ingestion operations in your applications and Kusto, set the source ID and log it somewhere.
-            // Tip 3: To instruct the client to ingest a file (and not another source type), we can either provide it with a path as the sourceUri,
-            // or use the IsLocalFileSystem = true flag.
             var sourceOptions = new StorageSourceOptions
-            {
-                Size = 0,
-                SourceId = Guid.NewGuid(),
-                IsLocalFileSystem = true
-            };
-
-            await ingestClient.IngestFromStorageAsync(filePath, ingestionProperties, sourceOptions);
-        }
-
-        /// <summary>
-        /// Ingest Data from a Blob.
-        /// </summary>
-        /// <param name="ingestClient">Client to ingest data</param>
-        /// <param name="configDatabaseName">DB name</param>
-        /// <param name="configTableName">Table name</param>
-        /// <param name="blobUri">Blob Uri</param>
-        /// <param name="dataFormat">Given data format</param>
-        /// <param name="mappingName">Desired mapping name</param>
-        public static async Task IngestFromBlobAsync(IKustoIngestClient ingestClient, string configDatabaseName, string configTableName, string blobUri, DataSourceFormat dataFormat, string mappingName)
-        {
-            var ingestionProperties = CreateIngestionProperties(configDatabaseName, configTableName, dataFormat, mappingName);
-
-            // Tip 1: For optimal ingestion batching and performance, specify the uncompressed data size in the file descriptor instead of the default below of
-            // 0. Otherwise, the service will determine the file size, requiring an additional s2s call, and may not be accurate for compressed files.
-            // Tip 2: To correlate between ingestion operations in your applications and Kusto, set the source ID and log it somewhere
-            var sourceOptions = new StorageSourceOptions()
             {
                 Size = 0,
                 SourceId = Guid.NewGuid()
             };
-            await ingestClient.IngestFromStorageAsync(blobUri, ingestionProperties, sourceOptions);
+
+            // Tip 3: To instruct the client to ingest a *file* (and not another source type), we can either provide it with a path as the sourceUri, or use the IsLocalFileSystem = true flag.
+            if (isFile)
+                sourceOptions.IsLocalFileSystem = true;
+
+            await ingestClient.IngestFromStorageAsync(uri, ingestionProperties, sourceOptions);
         }
 
         /// <summary>
         /// Halts the program for WaitForIngestSeconds, allowing the queued ingestion process to complete.
         /// </summary>
-        public static async Task WaitForIngestionToComplete(int WaitForIngestSeconds)
+        public static async Task WaitForIngestionToCompleteAsync(int WaitForIngestSeconds)
         {
             Console.WriteLine($"Sleeping {WaitForIngestSeconds} seconds for queued ingestion to complete. Note: This may take longer depending on the file size and ingestion batching policy.");
             Console.WriteLine();

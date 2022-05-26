@@ -95,7 +95,7 @@ namespace QuickStart
             // You can also use the CslCommandGenerator class to build commands: string command = CslCommandGenerator.GenerateTableAlterMergeCommand();
             var command = $".alter-merge table {configTableName} {configTableSchema}";
 
-            if (!await Util.Execute(adminClient, configDatabaseName, command))
+            if (!await Util.ExecuteAsync(adminClient, configDatabaseName, command))
                 Util.ErrorHandler($"Failed to alter table using command '{command}'");
         }
 
@@ -109,7 +109,7 @@ namespace QuickStart
         {
             WaitForUserToProceed($"Get existing row count in '{configDatabaseName}.{configTableName}'");
             var query = $"{configTableName} | count";
-            if (!await Util.Execute(queryClient, configDatabaseName, query))
+            if (!await Util.ExecuteAsync(queryClient, configDatabaseName, query))
                 Util.ErrorHandler($"Failed to execute query: '{query}'");
         }
 
@@ -128,7 +128,7 @@ namespace QuickStart
             // You can also use the CslCommandGenerator class to build commands: string command = CslCommandGenerator.GenerateTableCreateCommand();
             var command = $".create table {configTableName} {configTableSchema}";
 
-            if (!await Util.Execute(adminClient, configDatabaseName, command))
+            if (!await Util.ExecuteAsync(adminClient, configDatabaseName, command))
                 Util.ErrorHandler($"Failed to create table or validate it exists using command '{command}'");
 
             // Learn More: Kusto batches data for ingestion efficiency. The default batching policy ingests data when one of the following conditions are met:
@@ -161,7 +161,7 @@ namespace QuickStart
 
             WaitForUserToProceed($"Alter the batching policy for table '{configDatabaseName}.{configTableName}'");
             var command = $".alter table {configTableName} policy ingestionbatching @'{batchingPolicy}'";
-            if (!await Util.Execute(adminClient, configDatabaseName, command))
+            if (!await Util.ExecuteAsync(adminClient, configDatabaseName, command))
                 Console.WriteLine("Failed to alter the ingestion policy, which could be the result of insufficient permissions. The sample will still run, " +
                                   "though ingestion will be delayed for up to 5 minutes.");
         }
@@ -190,7 +190,7 @@ namespace QuickStart
                 await IngestAsync(file, dataFormat, ingestClient, config.DatabaseName, config.TableName, mappingName);
             }
 
-            await Util.WaitForIngestionToComplete(config.WaitForIngestSeconds);
+            await Util.WaitForIngestionToCompleteAsync(config.WaitForIngestSeconds);
         }
 
         /// <summary>
@@ -216,7 +216,7 @@ namespace QuickStart
             var mappingCommand =
                 $".create-or-alter table {configTableName} ingestion {ingestionMappingKind} mapping '{mappingName}' '{mappingValue}'";
 
-            if (!await Util.Execute(adminClient, configDatabaseName, mappingCommand))
+            if (!await Util.ExecuteAsync(adminClient, configDatabaseName, mappingCommand))
                 Util.ErrorHandler(
                     $"Failed to create a '{ingestionMappingKind}' mapping reference named '{mappingName}'. Skipping this ingestion.");
 
@@ -244,14 +244,13 @@ namespace QuickStart
 
             // Tip: Kusto's C# SDK can ingest data from files, blobs and open streams.See the SDK's samples and the E2E tests in azure.kusto.ingest for
             // additional references.
-
             switch (sourceType)
             {
                 case "localfilesource":
-                    await Util.IngestFromFile(ingestClient, configDatabaseName, configTableName, sourceUri, dataFormat, mappingName);
+                    await Util.IngestAsync(ingestClient, configDatabaseName, configTableName, sourceUri, dataFormat, mappingName, true);
                     break;
                 case "blobsource":
-                    await Util.IngestFromBlobAsync(ingestClient, configDatabaseName, configTableName, sourceUri, dataFormat, mappingName);
+                    await Util.IngestAsync(ingestClient, configDatabaseName, configTableName, sourceUri, dataFormat, mappingName);
                     break;
                 default:
                     Util.ErrorHandler($"Unknown source '{sourceType}' for file '{sourceUri}'");
@@ -272,13 +271,13 @@ namespace QuickStart
             WaitForUserToProceed($"Get {optionalPostIngestionPrompt}row count for '{configDatabaseName}.{configTableName}':");
 
             var rowQuery = $"{configTableName} | count";
-            if (!await Util.Execute(queryProvider, configDatabaseName, rowQuery))
+            if (!await Util.ExecuteAsync(queryProvider, configDatabaseName, rowQuery))
                 Util.ErrorHandler($"Failed to execute query: '{rowQuery}'");
 
             WaitForUserToProceed($"Get sample (2 records) of {optionalPostIngestionPrompt}data:");
 
             var sampleQuery = $"{configTableName} | take 2";
-            if (!await Util.Execute(queryProvider, configDatabaseName, sampleQuery))
+            if (!await Util.ExecuteAsync(queryProvider, configDatabaseName, sampleQuery))
                 Util.ErrorHandler($"Failed to execute query: '{sampleQuery}'");
         }
 
