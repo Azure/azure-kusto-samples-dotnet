@@ -1,123 +1,24 @@
 using System;
-using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Security.Cryptography.X509Certificates;
 using Kusto.Data;
 using Kusto.Data.Common;
+using Kusto.Data.Exceptions;
 using Kusto.Ingest;
-using Newtonsoft.Json;
+using Kusto.Ingest.Exceptions;
 using Kusto.Cloud.Platform.Data;
 using ShellProgressBar;
 
 namespace QuickStart
 {
-    /// <summary>
-    /// ConfigJson object - represents a cluster and DataBase connection configuration file.
-    /// </summary>
-    public class ConfigJson
-    {
-        /// Flag to indicate whether to use an existing table, or to create a new one. 
-        public bool UseExistingTable { get; set; }
-
-        /// DB to work on from the given URI.
-        public string DatabaseName { get; set; }
-
-        /// Table to work on from the given DB.
-        public string TableName { get; set; }
-
-        /// Table to work with from the given Table.
-        public string TableSchema { get; set; }
-
-        /// Cluster to connect to and query from.
-        public string KustoUri { get; set; }
-
-        /// Ingestion cluster to connect and ingest to. will usually be the same as the KustoUri, but starting with "ingest-"...
-        public string IngestUri { get; set; }
-
-        /// Certificate Path when using AppCertificate authentication mode.
-        public string CertificatePath { get; set; }
-
-        /// Certificate Password when using AppCertificate authentication mode.
-        public string CertificatePassword { get; set; }
-
-        /// Application Id when using AppCertificate authentication mode.
-        public string ApplicationId { get; set; }
-
-        /// Tenant Id when using AppCertificate authentication mode.
-        public string TenantId { get; set; }
-
-        /// Data sources list to ingest from.
-        public List<Dictionary<string, string>> Data { get; set; }
-
-        /// Flag to indicate whether to Alter-merge the table (query).
-        public bool AlterTable { get; set; }
-
-        /// Flag to indicate whether to query the starting data (query).
-        public bool QueryData { get; set; }
-
-        /// Flag to indicate whether ingest data based on data sources.
-        public bool IngestData { get; set; }
-
-        /// Recommended default: UserPrompt
-        /// Some of the auth modes require additional environment variables to be set in order to work (see usage in generate_connection_string function).
-        /// Managed Identity Authentication only works when running as an Azure service (webapp, function, etc.)
-        /// Options: (UserPrompt|ManagedIdentity|AppKey|AppCertificate)
-        public string AuthenticationMode { get; set; }
-
-        /// Recommended default: True
-        /// Toggle to False to execute this script "unattended"
-        public bool WaitForUser { get; set; }
-
-        /// Sleep time to allow for queued ingestion to complete.
-        public int WaitForIngestSeconds { get; set; }
-
-        /// Optional - Customized ingestion batching policy
-        public string BatchingPolicy { get; set; }
-    }
-
+    
     /// <summary>
     /// Util static class - Handels the communication with the API, and provides generic and simple "plug-n-play" functions to use in different programs.
     /// </summary>
-    public static class Util
+    public static class Utils
     {
         private const string MgmtPrefix = ".";
-        /// <summary>
-        /// Loads JSON configuration file, and sets the metadata in place. 
-        /// </summary>
-        /// <param name="configFilePath"> Configuration file path.</param>
-        /// <returns>ConfigJson object, allowing access to the metadata fields.</returns>
-        public static ConfigJson LoadConfigs(string configFilePath)
-        {
-            try
-            {
-                var json = File.ReadAllText(configFilePath);
-                var config = JsonConvert.DeserializeObject<ConfigJson>(json);
-                var missing = new[]
-                {
-                    (name: nameof(config.DatabaseName), value: config.DatabaseName),
-                    (name: nameof(config.TableName), value: config.TableName),
-                    (name: nameof(config.TableSchema), value: config.TableSchema),
-                    (name: nameof(config.KustoUri), value: config.KustoUri),
-                    (name: nameof(config.IngestUri), value: config.IngestUri),
-                    (name: nameof(config.AuthenticationMode), value: config.AuthenticationMode)
-                }.Where(item => string.IsNullOrWhiteSpace(item.value)).ToArray();
-
-                if (missing.Any())
-                    ErrorHandler($"File '{configFilePath}' is missing required fields: {string.Join(", ", missing.Select(item => item.name))}");
-
-                if (config.Data is null || !config.Data.Any() || config.Data[0].Count == 0)
-                    ErrorHandler($"Required field Data in '{configFilePath}' is either missing, empty or misfilled");
-                return config;
-            }
-            catch (Exception ex)
-            {
-                ErrorHandler($"Couldn't read config file: '{configFilePath}'", ex);
-            }
-
-            return null;
-        }
 
         /// <summary>
         /// Generates Kusto Connection String based on given Authentication Mode.
@@ -194,43 +95,27 @@ namespace QuickStart
                 ErrorHandler($"Missing the following required fields in configuration file in order to authenticate using a certificate: {string.Join(", ", missing.Select(item => item.name))}");
 
             var appId = Environment.GetEnvironmentVariable("APP_ID");
-            var SubjectDistinguishedName = Environment.GetEnvironmentVariable("SUBJECT_DISTINGUISHED_NAME");
-            var IssuerDistinguishedName = Environment.GetEnvironmentVariable("ISSUER_DISTINGUISHED_NAME");
-            var privateKeyPemFilePath = Environment.GetEnvironmentVariable("PRIVATE_KEY_PEM_FILE_PATH");
+            var subjectDistinguishedName = Environment.GetEnvironmentVariable("SUBJECT_DISTINGUISHED_NAME");
+            var issuerDistinguishedName = Environment.GetEnvironmentVariable("ISSUER_DISTINGUISHED_NAME");
             var publicCertFilePath = Environment.GetEnvironmentVariable("PUBLIC_CERT_FILE_PATH");
-            string publicCertificate;
-            string pemCertificate;
 
-            try
-            {
-                pemCertificate = File.ReadAllText(privateKeyPemFilePath ?? throw new InvalidOperationException());
-            }
-            catch (InvalidOperationException e)
-            {
-                ErrorHandler($"Failed to load PEM file from {privateKeyPemFilePath}", e);
-            }
 
-            if (publicCertFilePath != null)
+            if (publicCertFilePath == null)
             {
-                try
+                X509Certificate2 certificate = null;
+                if (certificatePath != null)
                 {
-                    publicCertificate = File.ReadAllText(publicCertFilePath);
+                    certificate = new X509Certificate2(certificatePath, certificatePassword);
                 }
-                catch (InvalidOperationException e)
+                else
                 {
-                    ErrorHandler($"Failed to load public certificate file from {publicCertFilePath}", e);
+                    ErrorHandler("Missing Certificate path!");
                 }
-                return new KustoConnectionStringBuilder(clusterUrl).WithAadApplicationSubjectAndIssuerAuthentication(appId, SubjectDistinguishedName, IssuerDistinguishedName, tenantId);
+
+                return new KustoConnectionStringBuilder(clusterUrl).WithAadApplicationCertificateAuthentication(applicationId, certificate, tenantId, sendX5c: true);
             }
 
-
-            X509Certificate2 certificate = null;
-            if (certificatePath != null)
-                certificate = new X509Certificate2(certificatePath, certificatePassword);
-            else
-                ErrorHandler("Missing Certificate path!");
-
-            return new KustoConnectionStringBuilder(clusterUrl).WithAadApplicationCertificateAuthentication(applicationId, certificate, tenantId, sendX5c: true);
+            return new KustoConnectionStringBuilder(clusterUrl).WithAadApplicationSubjectAndIssuerAuthentication(appId, subjectDistinguishedName, issuerDistinguishedName, tenantId);
         }
 
         /// <summary>
@@ -285,15 +170,16 @@ namespace QuickStart
                 Console.WriteLine($"Response from executed command '{command}':\n--------------------");
                 var firstRow = result[0];
                 foreach (var item in firstRow.Properties())
+                {
                     Console.WriteLine(item);
+                }
             }
             catch (Exception ex)
             {
-                var err = ex.GetType().ToString();
                 string msg;
-                if (err == "KustoClientException")
+                if (ex is KustoClientException)
                     msg = "Client error while trying to execute command '{0}' on database '{1}'";
-                else if (err == "KustoServiceException")
+                else if (ex is Kusto.Data.Exceptions.KustoServiceException)
                     msg = "Server error while trying to execute command '{0}' on database '{1}'";
                 else
                     msg = "Unknown error while trying to execute command '{0}' on database '{1}'";
@@ -355,11 +241,10 @@ namespace QuickStart
             }
             catch (Exception ex)
             {
-                var err = ex.GetType().ToString();
                 string msg;
-                if (err == "IngestClientException")
+                if (ex is IngestClientException)
                     msg = "Client error while trying to ingest from '{0}'";
-                else if (err == "KustoServiceException")
+                else if (ex is Kusto.Ingest.Exceptions.KustoServiceException)
                     msg = "Server error while trying to ingest from '{0}'";
                 else
                     msg = "Unknown error while trying to ingest from '{0}'";

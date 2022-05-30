@@ -1,12 +1,80 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.IO;
+using System.Linq;
 using Kusto.Data.Common;
 using Kusto.Data.Net.Client;
 using Kusto.Ingest;
+using Newtonsoft.Json;
 
 namespace QuickStart
 {
+
+    /// <summary>
+    /// ConfigJson object - represents a cluster and DataBase connection configuration file.
+    /// </summary>
+    public class ConfigJson
+    {
+        /// Flag to indicate whether to use an existing table, or to create a new one. 
+        public bool UseExistingTable { get; set; }
+
+        /// DB to work on from the given URI.
+        public string DatabaseName { get; set; }
+
+        /// Table to work on from the given DB.
+        public string TableName { get; set; }
+
+        /// Table to work with from the given Table.
+        public string TableSchema { get; set; }
+
+        /// Cluster to connect to and query from.
+        public string KustoUri { get; set; }
+
+        /// Ingestion cluster to connect and ingest to. will usually be the same as the KustoUri, but starting with "ingest-"...
+        public string IngestUri { get; set; }
+
+        /// Certificate Path when using AppCertificate authentication mode.
+        public string CertificatePath { get; set; }
+
+        /// Certificate Password when using AppCertificate authentication mode.
+        public string CertificatePassword { get; set; }
+
+        /// Application Id when using AppCertificate authentication mode.
+        public string ApplicationId { get; set; }
+
+        /// Tenant Id when using AppCertificate authentication mode.
+        public string TenantId { get; set; }
+
+        /// Data sources list to ingest from.
+        public List<Dictionary<string, string>> Data { get; set; }
+
+        /// Flag to indicate whether to Alter-merge the table (query).
+        public bool AlterTable { get; set; }
+
+        /// Flag to indicate whether to query the starting data (query).
+        public bool QueryData { get; set; }
+
+        /// Flag to indicate whether ingest data based on data sources.
+        public bool IngestData { get; set; }
+
+        /// Recommended default: UserPrompt
+        /// Some of the auth modes require additional environment variables to be set in order to work (see usage in generate_connection_string function).
+        /// Managed Identity Authentication only works when running as an Azure service (webapp, function, etc.)
+        /// Options: (UserPrompt|ManagedIdentity|AppKey|AppCertificate)
+        public string AuthenticationMode { get; set; }
+
+        /// Recommended default: True
+        /// Toggle to False to execute this script "unattended"
+        public bool WaitForUser { get; set; }
+
+        /// Sleep time to allow for queued ingestion to complete.
+        public int WaitForIngestSeconds { get; set; }
+
+        /// Optional - Customized ingestion batching policy
+        public string BatchingPolicy { get; set; }
+    }
+
     /// <summary>
     /// The quick start application is a self-contained and runnable example script that demonstrates authenticating connecting to, administering, ingesting
     /// data into and querying Azure Data Explorer using the azure-kusto C# SDK. You can use it as a baseline to write your own first kusto client application,
@@ -21,7 +89,7 @@ namespace QuickStart
         // If this quickstart app was downloaded from OneClick, kusto_sample_config.json should be pre-populated with your cluster's details.
         // If this quickstart app was downloaded from GitHub, edit kusto_sample_config.json and modify the cluster URL and database fields appropriately.
         private const string ConfigFileName = @"kusto_sample_config.json";
-        private static int _step = 1;
+        private static int Step = 1;
         private static bool _WaitForUser;
 
         /// <summary>
@@ -31,14 +99,14 @@ namespace QuickStart
         {
             Console.WriteLine("Kusto sample app is starting...");
 
-            var config = Util.LoadConfigs(ConfigFileName);
+            var config = LoadConfigs(ConfigFileName);
             _WaitForUser = config.WaitForUser;
 
             if (config.AuthenticationMode == "UserPrompt")
                 WaitForUserToProceed("You will be prompted *twice* for credentials during this script. Please return to the console after authenticating.");
 
-            var kustoConnectionString = Util.GenerateConnectionString(config.KustoUri, config.AuthenticationMode, config.CertificatePath, config.CertificatePassword, config.ApplicationId, config.TenantId);
-            var ingestConnectionString = Util.GenerateConnectionString(config.IngestUri, config.AuthenticationMode, config.CertificatePath, config.CertificatePassword, config.ApplicationId, config.TenantId);
+            var kustoConnectionString = Utils.GenerateConnectionString(config.KustoUri, config.AuthenticationMode, config.CertificatePath, config.CertificatePassword, config.ApplicationId, config.TenantId);
+            var ingestConnectionString = Utils.GenerateConnectionString(config.IngestUri, config.AuthenticationMode, config.CertificatePath, config.CertificatePassword, config.ApplicationId, config.TenantId);
 
             using (var adminClient = KustoClientFactory.CreateCslAdminProvider(kustoConnectionString)) // For control commands
             using (var queryProvider = KustoClientFactory.CreateCslQueryProvider(kustoConnectionString)) // For regular querying
@@ -54,6 +122,47 @@ namespace QuickStart
             }
 
             Console.WriteLine("\nKusto sample app done");
+        }
+
+        /// <summary>
+        /// Loads JSON configuration file, and sets the metadata in place. 
+        /// </summary>
+        /// <param name="configFilePath"> Configuration file path.</param>
+        /// <returns>ConfigJson object, allowing access to the metadata fields.</returns>
+        public static ConfigJson LoadConfigs(string configFilePath)
+        {
+            try
+            {
+                var json = File.ReadAllText(configFilePath);
+                var config = JsonConvert.DeserializeObject<ConfigJson>(json);
+                var missing = new[]
+                {
+                    (name: nameof(config.DatabaseName), value: config.DatabaseName),
+                    (name: nameof(config.TableName), value: config.TableName),
+                    (name: nameof(config.TableSchema), value: config.TableSchema),
+                    (name: nameof(config.KustoUri), value: config.KustoUri),
+                    (name: nameof(config.IngestUri), value: config.IngestUri),
+                    (name: nameof(config.AuthenticationMode), value: config.AuthenticationMode)
+                }.Where(item => string.IsNullOrWhiteSpace(item.value)).ToArray();
+
+                if (missing.Any())
+                {
+                    Utils.ErrorHandler($"File '{configFilePath}' is missing required fields: {string.Join(", ", missing.Select(item => item.name))}");
+                }
+
+                if (config.Data is null || !config.Data.Any() || config.Data[0].Count == 0)
+                {
+                    Utils.ErrorHandler($"Required field Data in '{configFilePath}' is either missing, empty or misfilled");
+                }
+
+                return config;
+            }
+            catch (Exception ex)
+            {
+                Utils.ErrorHandler($"Couldn't read config file: '{configFilePath}'", ex);
+            }
+
+            throw new InvalidOperationException("Unreachable code");
         }
 
         /// <summary>
@@ -115,7 +224,7 @@ namespace QuickStart
         {
             // You can also use the CslCommandGenerator class to build commands: string command = CslCommandGenerator.GenerateTableAlterMergeCommand();
             var command = $".alter-merge table {configTableName} {configTableSchema}";
-            await Util.ExecuteAsync(adminClient, configDatabaseName, command);
+            await Utils.ExecuteAsync(adminClient, configDatabaseName, command);
         }
 
         /// <summary>
@@ -129,7 +238,7 @@ namespace QuickStart
         {
             // You can also use the CslCommandGenerator class to build commands: string command = CslCommandGenerator.GenerateTableCreateCommand();
             var command = $".create table {configTableName} {configTableSchema}";
-            await Util.ExecuteAsync(adminClient, configDatabaseName, command);
+            await Utils.ExecuteAsync(adminClient, configDatabaseName, command);
         }
 
         /// <summary>
@@ -145,7 +254,7 @@ namespace QuickStart
             // Tip 2: This is generally a one-time configuration.
             // Tip 3: You can also skip the batching for some files using the Flush-Immediately property, though this option should be used with care as it is inefficient.
             var command = $".alter table {configTableName} policy ingestionbatching @'{batchingPolicy}'";
-            await Util.ExecuteAsync(adminClient, configDatabaseName, command);
+            await Utils.ExecuteAsync(adminClient, configDatabaseName, command);
             // If it failed to alter the ingestion policy - it could be the result of insufficient permissions. The sample will still run, though ingestion will be delayed for up to 5 minutes.
         }
 
@@ -158,7 +267,7 @@ namespace QuickStart
         private static async Task QueryExistingNumberOfRowsAsync(ICslQueryProvider queryClient, string configDatabaseName, string configTableName)
         {
             var query = $"{configTableName} | count";
-            await Util.ExecuteAsync(queryClient, configDatabaseName, query);
+            await Utils.ExecuteAsync(queryClient, configDatabaseName, query);
         }
 
         /// <summary>
@@ -170,7 +279,7 @@ namespace QuickStart
         private static async Task QueryFirstTwoRowsAsync(ICslQueryProvider queryClient, string configDatabaseName, string configTableName)
         {
             var query = $"{configTableName} | take 2";
-            await Util.ExecuteAsync(queryClient, configDatabaseName, query);
+            await Utils.ExecuteAsync(queryClient, configDatabaseName, query);
         }
 
         /// <summary>
@@ -196,7 +305,7 @@ namespace QuickStart
                 await IngestDataAsync(file, dataFormat, ingestClient, config.DatabaseName, config.TableName, mappingName);
             }
 
-            await Util.WaitForIngestionToCompleteAsync(config.WaitForIngestSeconds);
+            await Utils.WaitForIngestionToCompleteAsync(config.WaitForIngestSeconds);
         }
 
         /// <summary>
@@ -223,7 +332,7 @@ namespace QuickStart
 
             try
             {
-                await Util.ExecuteAsync(adminClient, configDatabaseName, mappingCommand);
+                await Utils.ExecuteAsync(adminClient, configDatabaseName, mappingCommand);
                 return true;
             }
             catch (Exception)
@@ -256,13 +365,13 @@ namespace QuickStart
             switch (sourceType)
             {
                 case "localfilesource":
-                    await Util.IngestAsync(ingestClient, configDatabaseName, configTableName, sourceUri, dataFormat, mappingName, true);
+                    await Utils.IngestAsync(ingestClient, configDatabaseName, configTableName, sourceUri, dataFormat, mappingName, true);
                     break;
                 case "blobsource":
-                    await Util.IngestAsync(ingestClient, configDatabaseName, configTableName, sourceUri, dataFormat, mappingName);
+                    await Utils.IngestAsync(ingestClient, configDatabaseName, configTableName, sourceUri, dataFormat, mappingName);
                     break;
                 default:
-                    Util.ErrorHandler($"Unknown source '{sourceType}' for file '{sourceUri}'");
+                    Utils.ErrorHandler($"Unknown source '{sourceType}' for file '{sourceUri}'");
                     break;
             }
         }
@@ -291,8 +400,8 @@ namespace QuickStart
         /// <param name="promptMsg"> Prompt to display to user.</param>
         private static void WaitForUserToProceed(string promptMsg)
         {
-            Console.WriteLine($"\nStep {_step}: {promptMsg}");
-            _step++;
+            Console.WriteLine($"\nStep {Step}: {promptMsg}");
+            Step++;
             if (_WaitForUser)
             {
                 Console.WriteLine("Press any key to proceed with this operation...");
