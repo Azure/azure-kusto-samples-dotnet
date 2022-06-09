@@ -25,12 +25,9 @@ namespace QuickStart
         /// </summary>
         /// <param name="clusterUrl"> Cluster to connect to.</param>
         /// <param name="authenticationMode">User Authentication Mode, Options: (UserPrompt|ManagedIdentity|AppKey|AppCertificate)</param>
-        /// <param name="certificatePath">Given certificate path</param>
-        /// <param name="certificatePassword">Given certificate password</param>
-        /// <param name="applicationId">Given application id</param>
         /// <param name="tenantId">Given tenant id</param>
         /// <returns>A connection string to be used when creating a Client</returns>
-        public static KustoConnectionStringBuilder GenerateConnectionString(string clusterUrl, AuthenticationModeOptions authenticationMode, string certificatePath, string certificatePassword, string applicationId, string tenantId)
+        public static KustoConnectionStringBuilder GenerateConnectionString(string clusterUrl, AuthenticationModeOptions authenticationMode, string tenantId)
         {
             // Learn More: For additional information on how to authorize users and apps in Kusto see:
             // https://docs.microsoft.com/azure/data-explorer/manage-database-permissions
@@ -53,7 +50,7 @@ namespace QuickStart
 
                 case AuthenticationModeOptions.AppCertificate:
                     // Authenticate using a certificate file.
-                    return CreateAppCertificateConnectionString(clusterUrl, certificatePath, certificatePassword, applicationId, tenantId);
+                    return CreateAppCertificateConnectionString(clusterUrl, tenantId);
 
                 default:
                     ErrorHandler($"Authentication mode '{authenticationMode}' is not supported");
@@ -78,42 +75,13 @@ namespace QuickStart
         /// Generates Kusto Connection String based on 'AppCertificate' Authentication Mode.
         /// </summary>
         /// <param name="clusterUrl">Url of cluster to connect to</param>
-        /// <param name="certificatePath">Given certificate path</param>
-        /// <param name="certificatePassword">Given certificate password</param>
-        /// <param name="applicationId">Given application id</param>
         /// <param name="tenantId">Given tenant id</param>
         /// <returns>AppCertificate Kusto Connection String</returns>
-        public static KustoConnectionStringBuilder CreateAppCertificateConnectionString(string clusterUrl, string certificatePath, string certificatePassword, string applicationId, string tenantId)
+        public static KustoConnectionStringBuilder CreateAppCertificateConnectionString(string clusterUrl, string tenantId)
         {
-            var missing = new[]
-            {
-                (name: nameof(certificatePath), value: certificatePath),
-                (name: nameof(certificatePassword), value: certificatePassword),
-                (name: nameof(applicationId), value: tenantId),
-            }.Where(item => string.IsNullOrWhiteSpace(item.value)).ToArray();
-            if (missing.Any())
-                ErrorHandler($"Missing the following required fields in configuration file in order to authenticate using a certificate: {string.Join(", ", missing.Select(item => item.name))}");
-
             var appId = Environment.GetEnvironmentVariable("APP_ID");
             var subjectDistinguishedName = Environment.GetEnvironmentVariable("SUBJECT_DISTINGUISHED_NAME");
             var issuerDistinguishedName = Environment.GetEnvironmentVariable("ISSUER_DISTINGUISHED_NAME");
-            var publicCertFilePath = Environment.GetEnvironmentVariable("PUBLIC_CERT_FILE_PATH");
-
-
-            if (publicCertFilePath == null)
-            {
-                X509Certificate2 certificate = null;
-                if (certificatePath != null)
-                {
-                    certificate = new X509Certificate2(certificatePath, certificatePassword);
-                }
-                else
-                {
-                    ErrorHandler("Missing Certificate path!");
-                }
-
-                return new KustoConnectionStringBuilder(clusterUrl).WithAadApplicationCertificateAuthentication(applicationId, certificate, tenantId, sendX5c: true);
-            }
 
             return new KustoConnectionStringBuilder(clusterUrl).WithAadApplicationSubjectAndIssuerAuthentication(appId, subjectDistinguishedName, issuerDistinguishedName, tenantId);
         }
@@ -135,7 +103,9 @@ namespace QuickStart
             };
             // Tip: Though uncommon, you can alter the request default command timeout using the below command, e.g. to set the timeout to 10 minutes, use "10m"
             if (timeout != null)
+            {
                 clientRequestProperties.SetOption(ClientRequestProperties.OptionServerTimeout, timeout);
+            }
 
             return clientRequestProperties;
         }
@@ -174,17 +144,17 @@ namespace QuickStart
                     Console.WriteLine(item);
                 }
             }
+            catch (KustoClientException ex)
+            {
+                ErrorHandler(string.Format("Client error while trying to execute command '{0}' on database '{1}'", command, configDatabaseName), ex);
+            }
+            catch (Kusto.Data.Exceptions.KustoServiceException ex)
+            {
+                ErrorHandler(string.Format("Server error while trying to execute command '{0}' on database '{1}'", command, configDatabaseName), ex);
+            }
             catch (Exception ex)
             {
-                string msg;
-                if (ex is KustoClientException)
-                    msg = "Client error while trying to execute command '{0}' on database '{1}'";
-                else if (ex is Kusto.Data.Exceptions.KustoServiceException)
-                    msg = "Server error while trying to execute command '{0}' on database '{1}'";
-                else
-                    msg = "Unknown error while trying to execute command '{0}' on database '{1}'";
-
-                ErrorHandler(string.Format(msg, command, configDatabaseName), ex);
+                ErrorHandler(string.Format("Unknown error while trying to execute command '{0}' on database '{1}'", command, configDatabaseName), ex);
             }
         }
 
@@ -233,23 +203,25 @@ namespace QuickStart
 
             // Tip 3: To instruct the client to ingest a *file* (and not another source type), we can either provide it with a path as the sourceUri, or use the IsLocalFileSystem = true flag.
             if (isFile)
+            {
                 sourceOptions.IsLocalFileSystem = true;
+            }
 
             try
             {
                 await ingestClient.IngestFromStorageAsync(uri, ingestionProperties, sourceOptions);
             }
+            catch (IngestClientException ex)
+            {
+                ErrorHandler(string.Format("Client error while trying to ingest from '{0}'", uri), ex);
+            }
+            catch (Kusto.Ingest.Exceptions.KustoServiceException ex)
+            {
+                ErrorHandler(string.Format("Server error while trying to ingest from '{0}'", uri), ex);
+            }
             catch (Exception ex)
             {
-                string msg;
-                if (ex is IngestClientException)
-                    msg = "Client error while trying to ingest from '{0}'";
-                else if (ex is Kusto.Ingest.Exceptions.KustoServiceException)
-                    msg = "Server error while trying to ingest from '{0}'";
-                else
-                    msg = "Unknown error while trying to ingest from '{0}'";
-
-                ErrorHandler(string.Format(msg, uri), ex);
+                ErrorHandler(string.Format("Unknown error while trying to ingest from '{0}'", uri), ex);
             }
         }
 
@@ -287,7 +259,9 @@ namespace QuickStart
         {
             Console.WriteLine($"Script failed with error: {error}");
             if (e != null)
+            {
                 Console.WriteLine($"Exception: {e}");
+            }
 
             Environment.Exit(-1);
         }

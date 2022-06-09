@@ -82,15 +82,6 @@ namespace QuickStart
         /// Ingestion cluster to connect and ingest to. will usually be the same as the KustoUri, but starting with "ingest-"...
         public string IngestUri { get; set; }
 
-        /// Certificate Path when using AppCertificate authentication mode.
-        public string CertificatePath { get; set; }
-
-        /// Certificate Password when using AppCertificate authentication mode.
-        public string CertificatePassword { get; set; }
-
-        /// Application Id when using AppCertificate authentication mode.
-        public string ApplicationId { get; set; }
-
         /// Tenant Id when using AppCertificate authentication mode.
         public string TenantId { get; set; }
 
@@ -150,10 +141,12 @@ namespace QuickStart
             WaitForUser = config.WaitForUser;
 
             if (config.AuthenticationMode == AuthenticationModeOptions.UserPrompt)
+            {
                 WaitForUserToProceed("You will be prompted *twice* for credentials during this script. Please return to the console after authenticating.");
+            }
 
-            var kustoConnectionString = Utils.GenerateConnectionString(config.KustoUri, config.AuthenticationMode, config.CertificatePath, config.CertificatePassword, config.ApplicationId, config.TenantId);
-            var ingestConnectionString = Utils.GenerateConnectionString(config.IngestUri, config.AuthenticationMode, config.CertificatePath, config.CertificatePassword, config.ApplicationId, config.TenantId);
+            var kustoConnectionString = Utils.GenerateConnectionString(config.KustoUri, config.AuthenticationMode, config.TenantId);
+            var ingestConnectionString = Utils.GenerateConnectionString(config.IngestUri, config.AuthenticationMode, config.TenantId);
 
             using (var adminClient = KustoClientFactory.CreateCslAdminProvider(kustoConnectionString)) // For control commands
             using (var queryProvider = KustoClientFactory.CreateCslQueryProvider(kustoConnectionString)) // For regular querying
@@ -162,10 +155,14 @@ namespace QuickStart
                 await PreIngestionQueryingAsync(config, adminClient, queryProvider);
 
                 if (config.IngestData)
+                {
                     await IngestionAsync(config, adminClient, ingestClient);
+                }
 
                 if (config.QueryData)
+                {
                     await PostIngestionQueryingAsync(queryProvider, config.DatabaseName, config.TableName, config.IngestData);
+                }
             }
 
             Console.WriteLine("\nKusto sample app done");
@@ -362,7 +359,9 @@ namespace QuickStart
         private static async Task CreateIngestionMappingsAsync(bool useExistingMapping, ICslAdminProvider adminClient, string configDatabaseName, string configTableName, string mappingName, string mappingValue, DataSourceFormat dataFormat)
         {
             if (useExistingMapping || mappingValue is null)
+            {
                 return;
+            }
 
             var ingestionMappingKind = dataFormat.ToIngestionMappingKind().ToString().ToLower();
             WaitForUserToProceed($"Create a '{ingestionMappingKind}' mapping reference named '{mappingName}'");
