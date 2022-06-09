@@ -12,9 +12,9 @@ using ShellProgressBar;
 
 namespace QuickStart
 {
-    
+
     /// <summary>
-    /// Util static class - Handels the communication with the API, and provides generic and simple "plug-n-play" functions to use in different programs.
+    /// Util static class - Handles the communication with the API, and provides generic and simple "plug-n-play" functions to use in different programs.
     /// </summary>
     public static class Utils
     {
@@ -30,28 +30,28 @@ namespace QuickStart
         /// <param name="applicationId">Given application id</param>
         /// <param name="tenantId">Given tenant id</param>
         /// <returns>A connection string to be used when creating a Client</returns>
-        public static KustoConnectionStringBuilder GenerateConnectionString(string clusterUrl, string authenticationMode, string certificatePath, string certificatePassword, string applicationId, string tenantId)
+        public static KustoConnectionStringBuilder GenerateConnectionString(string clusterUrl, AuthenticationModeOptions authenticationMode, string certificatePath, string certificatePassword, string applicationId, string tenantId)
         {
             // Learn More: For additional information on how to authorize users and apps in Kusto see:
             // https://docs.microsoft.com/azure/data-explorer/manage-database-permissions
             switch (authenticationMode)
             {
-                case "UserPrompt":
+                case AuthenticationModeOptions.UserPrompt:
                     // Prompt user for credentials
                     return new KustoConnectionStringBuilder(clusterUrl).WithAadUserPromptAuthentication();
 
-                case "ManagedIdentity":
+                case AuthenticationModeOptions.ManagedIdentity:
                     // Authenticate using a System-Assigned managed identity provided to an azure service, or using a User-Assigned managed identity.
                     // For more information, see https://docs.microsoft.com/en-us/azure/active-directory/managed-identities-azure-resources/overview
                     return CreateManagedIdentityConnectionString(clusterUrl);
 
-                case "AppKey":
+                case AuthenticationModeOptions.AppKey:
                     // Learn More: For information about how to procure an AAD Application,
                     // see: https://docs.microsoft.com/azure/data-explorer/provision-azure-ad-app
                     // TODO (config - optional): App ID & tenant, and App Key to authenticate with
                     return new KustoConnectionStringBuilder(clusterUrl).WithAadApplicationKeyAuthentication(Environment.GetEnvironmentVariable("APP_ID"), Environment.GetEnvironmentVariable("APP_KEY"), Environment.GetEnvironmentVariable("APP_TENANT"));
 
-                case "AppCertificate":
+                case AuthenticationModeOptions.AppCertificate:
                     // Authenticate using a certificate file.
                     return CreateAppCertificateConnectionString(clusterUrl, certificatePath, certificatePassword, applicationId, tenantId);
 
