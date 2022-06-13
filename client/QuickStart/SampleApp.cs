@@ -145,8 +145,8 @@ namespace QuickStart
                 WaitForUserToProceed("You will be prompted *twice* for credentials during this script. Please return to the console after authenticating.");
             }
 
-            var kustoConnectionString = Utils.GenerateConnectionString(config.KustoUri, config.AuthenticationMode, config.TenantId);
-            var ingestConnectionString = Utils.GenerateConnectionString(config.IngestUri, config.AuthenticationMode, config.TenantId);
+            var kustoConnectionString = Utils.Authentication.GenerateConnectionString(config.KustoUri, config.AuthenticationMode, config.TenantId);
+            var ingestConnectionString = Utils.Authentication.GenerateConnectionString(config.IngestUri, config.AuthenticationMode, config.TenantId);
 
             using (var adminClient = KustoClientFactory.CreateCslAdminProvider(kustoConnectionString)) // For control commands
             using (var queryProvider = KustoClientFactory.CreateCslQueryProvider(kustoConnectionString)) // For regular querying
@@ -265,7 +265,7 @@ namespace QuickStart
         {
             // You can also use the CslCommandGenerator class to build commands: string command = CslCommandGenerator.GenerateTableAlterMergeCommand();
             var command = $".alter-merge table {configTableName} {configTableSchema}";
-            await Utils.ExecuteAsync(adminClient, configDatabaseName, command);
+            await Utils.Queries.ExecuteAsync(adminClient, configDatabaseName, command);
         }
 
         /// <summary>
@@ -279,7 +279,7 @@ namespace QuickStart
         {
             // You can also use the CslCommandGenerator class to build commands: string command = CslCommandGenerator.GenerateTableCreateCommand();
             var command = $".create table {configTableName} {configTableSchema}";
-            await Utils.ExecuteAsync(adminClient, configDatabaseName, command);
+            await Utils.Queries.ExecuteAsync(adminClient, configDatabaseName, command);
         }
 
         /// <summary>
@@ -295,7 +295,7 @@ namespace QuickStart
             // Tip 2: This is generally a one-time configuration.
             // Tip 3: You can also skip the batching for some files using the Flush-Immediately property, though this option should be used with care as it is inefficient.
             var command = $".alter table {configTableName} policy ingestionbatching @'{batchingPolicy}'";
-            await Utils.ExecuteAsync(adminClient, configDatabaseName, command);
+            await Utils.Queries.ExecuteAsync(adminClient, configDatabaseName, command);
             // If it failed to alter the ingestion policy - it could be the result of insufficient permissions. The sample will still run, though ingestion will be delayed for up to 5 minutes.
         }
 
@@ -308,7 +308,7 @@ namespace QuickStart
         private static async Task QueryExistingNumberOfRowsAsync(ICslQueryProvider queryClient, string configDatabaseName, string configTableName)
         {
             var query = $"{configTableName} | count";
-            await Utils.ExecuteAsync(queryClient, configDatabaseName, query);
+            await Utils.Queries.ExecuteAsync(queryClient, configDatabaseName, query);
         }
 
         /// <summary>
@@ -320,7 +320,7 @@ namespace QuickStart
         private static async Task QueryFirstTwoRowsAsync(ICslQueryProvider queryClient, string configDatabaseName, string configTableName)
         {
             var query = $"{configTableName} | take 2";
-            await Utils.ExecuteAsync(queryClient, configDatabaseName, query);
+            await Utils.Queries.ExecuteAsync(queryClient, configDatabaseName, query);
         }
 
         /// <summary>
@@ -342,7 +342,7 @@ namespace QuickStart
                 await IngestDataAsync(dataFile, dataFile.Format, ingestClient, config.DatabaseName, config.TableName, dataFile.MappingName);
             }
 
-            await Utils.WaitForIngestionToCompleteAsync(config.WaitForIngestSeconds);
+            await Utils.Ingestion.WaitForIngestionToCompleteAsync(config.WaitForIngestSeconds);
         }
 
         /// <summary>
@@ -369,7 +369,7 @@ namespace QuickStart
             mappingName = mappingName ?? "DefaultQuickstartMapping" + Guid.NewGuid().ToString().Substring(0, 5);
             var mappingCommand = $".create-or-alter table {configTableName} ingestion {ingestionMappingKind} mapping '{mappingName}' '{mappingValue}'";
 
-            await Utils.ExecuteAsync(adminClient, configDatabaseName, mappingCommand);
+            await Utils.Queries.ExecuteAsync(adminClient, configDatabaseName, mappingCommand);
 
         }
 
@@ -396,10 +396,10 @@ namespace QuickStart
             switch (sourceType)
             {
                 case SourceType.localfilesource:
-                    await Utils.IngestAsync(ingestClient, configDatabaseName, configTableName, sourceUri, dataFormat, mappingName, true);
+                    await Utils.Ingestion.IngestAsync(ingestClient, configDatabaseName, configTableName, sourceUri, dataFormat, mappingName, true);
                     break;
                 case SourceType.blobsource:
-                    await Utils.IngestAsync(ingestClient, configDatabaseName, configTableName, sourceUri, dataFormat, mappingName);
+                    await Utils.Ingestion.IngestAsync(ingestClient, configDatabaseName, configTableName, sourceUri, dataFormat, mappingName);
                     break;
                 default:
                     Utils.ErrorHandler($"Unknown source '{sourceType}' for file '{sourceUri}'");
