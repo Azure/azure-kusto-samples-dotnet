@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <ImplicitUsings>disable</ImplicitUsings>
+        <Nullable>disable</Nullable>
+        <LangVersion>7.3</LangVersion>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net472</TargetFramework>
+    </PropertyGroup>
+
+    <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+      <DocumentationFile>bin\Debug\QuickStart.xml</DocumentationFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="DataTablePrettyPrinter" Version="0.2.0" />
+      <PackageReference Include="Microsoft.Azure.Kusto.Data" Version="10.0.3" />
+      <PackageReference Include="Microsoft.Azure.Kusto.Ingest" Version="10.0.3" />
+      <PackageReference Include="ShellProgressBar" Version="5.1.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Update="kusto_sample_config.json">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+      <None Update="dataset.json">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+      <None Update="dataset.csv">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+    </ItemGroup>
+
+</Project>
