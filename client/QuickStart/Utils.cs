@@ -19,7 +19,7 @@ namespace QuickStart
     public static class Utils
     {
         /// <summary>
-        /// Authentication module of Utils - incharge of authenticating the user with the system
+        /// Authentication module of Utils - in charge of authenticating the user with the system
         /// </summary>
         public static class Authentication
         {
@@ -93,7 +93,7 @@ namespace QuickStart
         }
 
         /// <summary>
-        /// Queries module of Utils - incharge of querying the data - either with management queries, or data queries
+        /// Queries module of Utils - in charge of querying the data - either with management queries, or data queries
         /// </summary>
         public static class Queries
         {
@@ -159,21 +159,21 @@ namespace QuickStart
                 }
                 catch (KustoClientException ex)
                 {
-                    ErrorHandler(string.Format("Client error while trying to execute command '{0}' on database '{1}'", command, configDatabaseName), ex);
+                    ErrorHandler($"Client error while trying to execute command '{command}' on database '{configDatabaseName}'", ex);
                 }
                 catch (Kusto.Data.Exceptions.KustoServiceException ex)
                 {
-                    ErrorHandler(string.Format("Server error while trying to execute command '{0}' on database '{1}'", command, configDatabaseName), ex);
+                    ErrorHandler($"Server error while trying to execute command '{command}' on database '{configDatabaseName}'", ex);
                 }
                 catch (Exception ex)
                 {
-                    ErrorHandler(string.Format("Unknown error while trying to execute command '{0}' on database '{1}'", command, configDatabaseName), ex);
+                    ErrorHandler($"Unknown error while trying to execute command '{command}' on database '{configDatabaseName}'", ex);
                 }
             }
 
         }
         /// <summary>
-        /// Ingestion module of Utils - incharge of ingesting the given data - based on the configuration file.
+        /// Ingestion module of Utils - in charge of ingesting the given data - based on the configuration file.
         /// </summary>
         public static class Ingestion
         {
@@ -233,15 +233,15 @@ namespace QuickStart
                 }
                 catch (IngestClientException ex)
                 {
-                    ErrorHandler(string.Format("Client error while trying to ingest from '{0}'", uri), ex);
+                    ErrorHandler($"Client error while trying to ingest from '{uri}'", ex);
                 }
                 catch (Kusto.Ingest.Exceptions.KustoServiceException ex)
                 {
-                    ErrorHandler(string.Format("Server error while trying to ingest from '{0}'", uri), ex);
+                    ErrorHandler($"Server error while trying to ingest from '{uri}'", ex);
                 }
                 catch (Exception ex)
                 {
-                    ErrorHandler(string.Format("Unknown error while trying to ingest from '{0}'", uri), ex);
+                    ErrorHandler($"Unknown error while trying to ingest from '{uri}'", ex);
                 }
             }
 
