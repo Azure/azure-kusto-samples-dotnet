@@ -2,13 +2,13 @@
 ## Deploy the lambda
 Find instructions [here]( https://docs.aws.amazon.com/lambda/latest/dg/gettingstarted-package.html)
 ## Define AAD application
-* Find instruction [here]( https://docs.microsoft.com/en-us/azure/active-directory/develop/howto-create-service-principal-portal)
+* Find instruction [here]( https://docs.microsoft.com/azure/active-directory/develop/howto-create-service-principal-portal)
 * Define a key for the application and save it.
-* Grant the application permissions on your ADx cluster - at least Ingestor for all the databases you want to ingest to.
+* Grant the application permissions on your ADX cluster - at least database Ingestor on the database you want to ingest to.
 ## Define environment variables
 * Under Lambda -> Configuration -> Environment variables define the following
 * AppKey - your aad app key
-*	AppId - your aad app Id
+*	AppId - your AAD app Id
 *	AppTenant - your aad app tenant
 *	TargetDatabase - Adx database to ingest to.
 *	TargetTable - table to ingest to.
