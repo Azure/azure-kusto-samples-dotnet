@@ -8,7 +8,7 @@ Find instructions [here]( https://docs.aws.amazon.com/lambda/latest/dg/gettingst
 ## Define environment variables
 * Under Lambda -> Configuration -> Environment variables define the following
 * AppKey - your aad app key
-*	AppId - your aad app Id
+*	AppId - your AAD app Id
 *	AppTenant - your aad app tenant
 *	TargetDatabase - Adx database to ingest to.
 *	TargetTable - table to ingest to.
