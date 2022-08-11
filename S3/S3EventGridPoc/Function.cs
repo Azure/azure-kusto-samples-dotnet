@@ -76,9 +76,8 @@ public class Function
             Console.WriteLine($"start to ingest {uri}");
             await client.IngestFromStorageAsync(uri:$"{uri};AwsCredentials={awsCredentials}", ingestionProperties: kustoIngestionProperties, sourceOptions);
             Console.WriteLine($"complete to ingest {uri}");
-
-            client.Dispose();
         }
 
+        client.Dispose();
     }
 }
