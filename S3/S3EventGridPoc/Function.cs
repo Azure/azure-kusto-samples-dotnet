@@ -13,16 +13,29 @@ namespace S3EventGridPoc;
 
 public class Function
 {
+    private readonly IKustoIngestClient _client;
+
     IAmazonS3 S3Client { get; set; }
 
     /// <summary>
-    /// Default constructor. This constructor is used by Lambda to construct the instance. When invoked in a Lambda environment
-    /// the AWS credentials will come from the IAM role associated with the function and the AWS region will be set to the
-    /// region the Lambda function is executed in.
+    /// Default constructor. This constructor is used by Lambda to construct the instance.
     /// </summary>
     public Function()
     {
         S3Client = new AmazonS3Client();
+        string appId = Environment.GetEnvironmentVariable("AppId");
+        string appKey = Environment.GetEnvironmentVariable("AppKey");
+        string authority = Environment.GetEnvironmentVariable("AppTenant");
+        string clusterUri = Environment.GetEnvironmentVariable("IngestionUri");
+        var kustoConnectionStringBuilderDM =
+            new KustoConnectionStringBuilder(clusterUri)
+            .WithAadApplicationKeyAuthentication(appId, appKey, authority);
+
+        Console.WriteLine($"Initializing an ingest client for {clusterUri}");
+        // Create an ingest client
+        // Note, that creating a separate instance per ingestion operation is an anti-pattern.
+        // IngestClient classes are thread-safe and intended for reuse
+        _client = KustoIngestFactory.CreateQueuedIngestClient(kustoConnectionStringBuilderDM);
     }
 
     /// <summary>
@@ -38,24 +51,8 @@ public class Function
     /// This method is called for every Lambda invocation. This method takes in an S3 event object and can be used 
     /// to respond to S3 notifications.
     /// </summary>
-    /// <param name="evnt"></param>
-    /// <param name="context"></param>
-    /// <returns></returns>
     public async Task FunctionHandler(S3Event evnt, ILambdaContext context)
     {
-        string appId = Environment.GetEnvironmentVariable("AppId");
-        string appKey = Environment.GetEnvironmentVariable("AppKey");
-        string authority = Environment.GetEnvironmentVariable("AppTenant");
-        string clusterUri = Environment.GetEnvironmentVariable("IngestionUri");
-        var kustoConnectionStringBuilderDM =
-            new KustoConnectionStringBuilder(clusterUri)
-            .WithAadApplicationKeyAuthentication(appId, appKey, authority);
-
-        // Create an ingest client
-        // Note, that creating a separate instance per ingestion operation is an anti-pattern.
-        // IngestClient classes are thread-safe and intended for reuse
-        IKustoIngestClient client = KustoIngestFactory.CreateQueuedIngestClient(kustoConnectionStringBuilderDM);
-
         var awsCredentials = Environment.GetEnvironmentVariable("AwsCredentials");
         string table = Environment.GetEnvironmentVariable("TargetTable");
         string database = Environment.GetEnvironmentVariable("TargetDatabase");
@@ -66,7 +63,7 @@ public class Function
             Console.WriteLine($"[{record.AwsRegion} - {record.EventTime}] Bucket = {s3.Bucket.Name}, Key = {s3.Object.Key}");
 
             // Ingest from blobs according to the required properties
-            var kustoIngestionProperties = new KustoQueuedIngestionProperties(databaseName: table, tableName: database)
+            var kustoIngestionProperties = new KustoQueuedIngestionProperties(databaseName: database, tableName: table)
             {
                 FlushImmediately = true
             };
@@ -74,10 +71,8 @@ public class Function
             var sourceOptions = new StorageSourceOptions() { DeleteSourceOnSuccess = false, Size = s3.Object.Size };
             var uri = $"https://{s3.Bucket.Name}.s3.{record.AwsRegion}.amazonaws.com/{s3.Object.Key}";
             Console.WriteLine($"start to ingest {uri}");
-            await client.IngestFromStorageAsync(uri:$"{uri};AwsCredentials={awsCredentials}", ingestionProperties: kustoIngestionProperties, sourceOptions);
+            await _client.IngestFromStorageAsync(uri:$"{uri};AwsCredentials={awsCredentials}", ingestionProperties: kustoIngestionProperties, sourceOptions);
             Console.WriteLine($"complete to ingest {uri}");
         }
-
-        client.Dispose();
     }
 }

@@ -1,4 +1,4 @@
-# Automatic Ingestion from S3 to ADx using lambda
+# Automatic Ingestion from S3 to ADX using lambda
 ## Deploy the lambda
 Find instructions [here]( https://docs.aws.amazon.com/lambda/latest/dg/gettingstarted-package.html)
 ## Define AAD application
@@ -10,7 +10,7 @@ Find instructions [here]( https://docs.aws.amazon.com/lambda/latest/dg/gettingst
 * AppKey - your aad app key
 *	AppId - your AAD app Id
 *	AppTenant - your aad app tenant
-*	TargetDatabase - Adx database to ingest to.
+*	TargetDatabase - ADX database to ingest to.
 *	TargetTable - table to ingest to.
 *	AwsCredentials - key and secret of Aws account which has permissions on the bucket, separated by comma.
 ## Define S3 trigger
@@ -19,4 +19,4 @@ Find instructions [here]( https://docs.aws.amazon.com/lambda/latest/dg/gettingst
 *	Define the events you want to notify (e.g. all creation events)
 *	Choose your lambda as the destination
 ## Done
-Now whenever you put blob into this bucket, it automatically will be ingested into your Adx!
+Now whenever you put blob into this bucket, it automatically will be ingested into your ADX!
