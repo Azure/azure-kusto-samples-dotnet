@@ -10,7 +10,7 @@ Find instructions [here]( https://docs.aws.amazon.com/lambda/latest/dg/gettingst
 *   AppKey - your AAD app key
 *	AppId - your AAD app Id
 *	AppTenant - your aad app tenant
-*   IngestionUri - Url to ingest to your ADX cluster. (https://ingest-{clusterName}.{region}.kusto.windows.net)
+*   IngestionUri - URL to ingest to your ADX cluster. (https://ingest-{clusterName}.{region}.kusto.windows.net)
 *	TargetDatabase - ADX database to ingest to.
 *	TargetTable - table to ingest to.
 *	AwsCredentials - key and secret of Aws account which has permissions on the bucket, separated by comma.
