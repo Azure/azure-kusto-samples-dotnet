@@ -13,7 +13,7 @@ namespace S3EventGridPoc;
 
 public class Function
 {
-    private readonly IKustoIngestClient _client;
+    private readonly IKustoIngestClient m_client;
 
     IAmazonS3 S3Client { get; set; }
 
@@ -35,7 +35,7 @@ public class Function
         // Create an ingest client
         // Note, that creating a separate instance per ingestion operation is an anti-pattern.
         // IngestClient classes are thread-safe and intended for reuse
-        _client = KustoIngestFactory.CreateQueuedIngestClient(kustoConnectionStringBuilderDM);
+        m_client = KustoIngestFactory.CreateQueuedIngestClient(kustoConnectionStringBuilderDM);
     }
 
     /// <summary>
@@ -45,8 +45,23 @@ public class Function
     public Function(IAmazonS3 s3Client)
     {
         this.S3Client = s3Client;
+
+        string appId = Environment.GetEnvironmentVariable("AppId");
+        string appKey = Environment.GetEnvironmentVariable("AppKey");
+        string authority = Environment.GetEnvironmentVariable("AppTenant");
+        string clusterUri = Environment.GetEnvironmentVariable("IngestionUri");
+        var kustoConnectionStringBuilderDM =
+            new KustoConnectionStringBuilder(clusterUri)
+            .WithAadApplicationKeyAuthentication(appId, appKey, authority);
+
+        Console.WriteLine($"Initializing an ingest client for {clusterUri}");
+        // Create an ingest client
+        // Note, that creating a separate instance per ingestion operation is an anti-pattern.
+        // IngestClient classes are thread-safe and intended for reuse
+        m_client = KustoIngestFactory.CreateQueuedIngestClient(kustoConnectionStringBuilderDM);
+
     }
-    
+
     /// <summary>
     /// This method is called for every Lambda invocation. This method takes in an S3 event object and can be used 
     /// to respond to S3 notifications.
@@ -71,7 +86,7 @@ public class Function
             var sourceOptions = new StorageSourceOptions() { DeleteSourceOnSuccess = false, Size = s3.Object.Size };
             var uri = $"https://{s3.Bucket.Name}.s3.{record.AwsRegion}.amazonaws.com/{s3.Object.Key}";
             Console.WriteLine($"start to ingest {uri}");
-            await _client.IngestFromStorageAsync(uri:$"{uri};AwsCredentials={awsCredentials}", ingestionProperties: kustoIngestionProperties, sourceOptions);
+            await m_client.IngestFromStorageAsync(uri:$"{uri};AwsCredentials={awsCredentials}", ingestionProperties: kustoIngestionProperties, sourceOptions);
             Console.WriteLine($"complete to ingest {uri}");
         }
     }

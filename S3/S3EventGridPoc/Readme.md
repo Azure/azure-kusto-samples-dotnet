@@ -7,9 +7,10 @@ Find instructions [here]( https://docs.aws.amazon.com/lambda/latest/dg/gettingst
 * Grant the application permissions on your ADX cluster - at least database Ingestor on the database you want to ingest to.
 ## Define environment variables
 * Under Lambda -> Configuration -> Environment variables define the following
-* AppKey - your aad app key
+*   AppKey - your aad app key
 *	AppId - your AAD app Id
 *	AppTenant - your aad app tenant
+*   IngestionUri - Url to ingest to your ADX cluster. (https://ingest-{clusterName}.{region}.kusto.windows.net)
 *	TargetDatabase - ADX database to ingest to.
 *	TargetTable - table to ingest to.
 *	AwsCredentials - key and secret of Aws account which has permissions on the bucket, separated by comma.
