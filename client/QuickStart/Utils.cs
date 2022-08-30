@@ -172,6 +172,7 @@ namespace QuickStart
             }
 
         }
+        
         /// <summary>
         /// Ingestion module of Utils - in charge of ingesting the given data - based on the configuration file.
         /// </summary>
@@ -185,14 +186,16 @@ namespace QuickStart
             /// <param name="configTableName">Table name</param>
             /// <param name="dataFormat">Given data format</param>
             /// <param name="mappingName">Desired mapping name</param>
+            /// <param name="ignoreFirstRecord">Flag noting whether to ignore the first record in the table</param>
             /// <returns>KustoIngestionProperties object</returns>
-            public static KustoIngestionProperties CreateIngestionProperties(string configDatabaseName, string configTableName, DataSourceFormat dataFormat, string mappingName)
+            public static KustoIngestionProperties CreateIngestionProperties(string configDatabaseName, string configTableName, DataSourceFormat dataFormat, string mappingName, bool ignoreFirstRecord)
             {
                 var kustoIngestionProperties = new KustoIngestionProperties()
                 {
                     DatabaseName = configDatabaseName,
                     TableName = configTableName,
                     IngestionMapping = new IngestionMapping() { IngestionMappingReference = mappingName },
+                    IgnoreFirstRecord = ignoreFirstRecord,
                     Format = dataFormat
                 };
 
@@ -208,10 +211,11 @@ namespace QuickStart
             /// <param name="uri">Uri to ingest from</param>
             /// <param name="dataFormat">Given data format</param>
             /// <param name="mappingName">Desired mapping name</param>
+            /// <param name="ignoreFirstRecord">Flag noting whether to ignore the first record in the table</param>
             /// <param name="isFile">Flag indicating whether the uri is of a file or not.</param>
-            public static async Task IngestAsync(IKustoIngestClient ingestClient, string configDatabaseName, string configTableName, string uri, DataSourceFormat dataFormat, string mappingName, bool isFile = false)
+            public static async Task IngestAsync(IKustoIngestClient ingestClient, string configDatabaseName, string configTableName, string uri, DataSourceFormat dataFormat, string mappingName, bool ignoreFirstRecord, bool isFile = false)
             {
-                var ingestionProperties = CreateIngestionProperties(configDatabaseName, configTableName, dataFormat, mappingName);
+                var ingestionProperties = CreateIngestionProperties(configDatabaseName, configTableName, dataFormat, mappingName, ignoreFirstRecord);
                 // Tip 1: For optimal ingestion batching and performance, specify the uncompressed data size in the file descriptor instead of the default below of 0. 
                 // Otherwise, the service will determine the file size, requiring an additional s2s call, and may not be accurate for compressed files.
                 // Tip 2: To correlate between ingestion operations in your applications and Kusto, set the source ID and log it somewhere.
