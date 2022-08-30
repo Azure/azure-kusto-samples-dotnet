@@ -106,6 +106,9 @@ namespace QuickStart
         /// Toggle to False to execute this script "unattended"
         public bool WaitForUser { get; set; }
 
+        /// Ignores the first record in a "X-seperated value" type file
+        public bool ignoreFirstRecord { get; set; }
+
         /// Sleep time to allow for queued ingestion to complete.
         public int WaitForIngestSeconds { get; set; }
 
@@ -339,7 +342,7 @@ namespace QuickStart
 
                 // Learn More: For more information about ingesting data to Kusto in C#,
                 // see: https://docs.microsoft.com/en-us/azure/data-explorer/net-sdk-ingest-data
-                await IngestDataAsync(dataFile, dataFile.Format, ingestClient, config.DatabaseName, config.TableName, dataFile.MappingName);
+                await IngestDataAsync(dataFile, dataFile.Format, ingestClient, config.DatabaseName, config.TableName, dataFile.MappingName, config.ignoreFirstRecord);
             }
 
             await Utils.Ingestion.WaitForIngestionToCompleteAsync(config.WaitForIngestSeconds);
@@ -382,7 +385,8 @@ namespace QuickStart
         /// <param name="configDatabaseName">DB name</param>
         /// <param name="configTableName">Table name</param>
         /// <param name="mappingName">Desired mapping name</param>
-        private static async Task IngestDataAsync(ConfigData dataSource, DataSourceFormat dataFormat, IKustoIngestClient ingestClient, string configDatabaseName, string configTableName, string mappingName)
+        /// <param name="ignoreFirstRecord">Flag noting whether to ignore the first record in the table</param>
+        private static async Task IngestDataAsync(ConfigData dataSource, DataSourceFormat dataFormat, IKustoIngestClient ingestClient, string configDatabaseName, string configTableName, string mappingName, bool ignoreFirstRecord)
         {
             var sourceType = dataSource.SourceType;
             var sourceUri = dataSource.DataSourceUri;
@@ -396,10 +400,10 @@ namespace QuickStart
             switch (sourceType)
             {
                 case SourceType.localfilesource:
-                    await Utils.Ingestion.IngestAsync(ingestClient, configDatabaseName, configTableName, sourceUri, dataFormat, mappingName, true);
+                    await Utils.Ingestion.IngestAsync(ingestClient, configDatabaseName, configTableName, sourceUri, dataFormat, mappingName, ignoreFirstRecord, true);
                     break;
                 case SourceType.blobsource:
-                    await Utils.Ingestion.IngestAsync(ingestClient, configDatabaseName, configTableName, sourceUri, dataFormat, mappingName);
+                    await Utils.Ingestion.IngestAsync(ingestClient, configDatabaseName, configTableName, sourceUri, dataFormat, mappingName, ignoreFirstRecord);
                     break;
                 default:
                     Utils.ErrorHandler($"Unknown source '{sourceType}' for file '{sourceUri}'");
