@@ -20,7 +20,9 @@ namespace QuickStart
         /// Ingest from local file
         localfilesource,
         /// Ingest from blob
-        blobsource
+        blobsource,
+        /// Do not ingest (ingest from nowhere)
+        nosource
     }
 
     /// <summary>
