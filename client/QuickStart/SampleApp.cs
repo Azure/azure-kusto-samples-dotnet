@@ -395,6 +395,7 @@ namespace QuickStart
             dataFormat = dataFormat == DataSourceFormat.json ? DataSourceFormat.multijson : dataFormat;
 
             // Tip: Kusto's C# SDK can ingest data from files, blobs and open streams.See the SDK's samples and the E2E tests in azure.kusto.ingest for additional references.
+            // Note: No need to add "nosource" option as in that case the "ingestData" flag will be set to false, and it will be imppossible to reach this code segemnt.
             switch (sourceType)
             {
                 case SourceType.localfilesource:
