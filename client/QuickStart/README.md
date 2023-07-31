@@ -42,3 +42,10 @@ You can use it as a baseline to write your own first kusto client application, a
 #### Troubleshooting
 
 * If you are having trouble running the app from your IDE, first check if the app runs from the command line, then consult the troubleshooting references of your IDE.
+
+### Optional changes
+
+You can make the following changes from within the app itself:
+
+- Change the default User-Prompt authentication method by editing `AUTHENTICATION_MODE`.
+- Change the app to run without stopping between steps by setting `WAIT_FOR_USER = false`
