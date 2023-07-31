@@ -139,13 +139,17 @@ namespace QuickStart
                     {
                         var clientRequestProperties = CreateClientRequestProperties("CS_SampleApp_ControlCommand");
                         ICslAdminProvider adminClient = (ICslAdminProvider)client;
-                        result = (await adminClient.ExecuteControlCommandAsync(configDatabaseName, command, clientRequestProperties)).ToJObjects().ToArray();
+                        var disposableResult = (await adminClient.ExecuteControlCommandAsync(configDatabaseName, command, clientRequestProperties));
+                        result = disposableResult.ToJObjects().ToArray();
+                        disposableResult.Dispose();
                     }
                     else
                     {
                         var clientRequestProperties = CreateClientRequestProperties("CS_SampleApp_Query");
                         ICslQueryProvider queryClient = (ICslQueryProvider)client;
-                        result = (await queryClient.ExecuteQueryAsync(configDatabaseName, command, clientRequestProperties)).ToJObjects().ToArray();
+                        var disposableResult = (await queryClient.ExecuteQueryAsync(configDatabaseName, command, clientRequestProperties));
+                        result = disposableResult.ToJObjects().ToArray();
+                        disposableResult.Dispose();
                     }
 
                     // Tip: Actual implementations wouldn't generally print the response from a control command or a query .We print here to demonstrate what a sample of the response looks like.
