@@ -32,9 +32,9 @@ You can use it as a baseline to write your own first kusto client application, a
 1. Open a command line window and navigate to the folder where you extracted the app. 
 2. Either use an IDE of choice to build and run the project, or do the following using the command line window:
    1. For .net Core:
-      1. Run `dotnet build QuickStart -o OUTPUT_PATH` to build the project and its dependencies into a set of binaries, including an executable that can be used to run the application. For more information, click [here](https://docs.microsoft.com/en-us/dotnet/core/tools/dotnet-build)
+      1. Run `dotnet build QuickStart` to build the project and its dependencies into a set of binaries, including an executable that can be used to run the application. For more information, click [here](https://docs.microsoft.com/en-us/dotnet/core/tools/dotnet-build)
    2. For .net Framework:
-      1. Locate your MSBuild app and Run `MSBuild build QuickStart.csproj /p:OutputPath=OUTPUT_PATH` to build the project and its dependencies into a set of binaries, including an executable that can be used to run the application. For more information, click [here](https://docs.microsoft.com/en-us/visualstudio/msbuild/msbuild-command-line-reference?view=vs-2022)
+      1. Locate your MSBuild app and Run `MSBuild build QuickStart.csproj` to build the project and its dependencies into a set of binaries, including an executable that can be used to run the application. For more information, click [here](https://docs.microsoft.com/en-us/visualstudio/msbuild/msbuild-command-line-reference?view=vs-2022)
    3. Make sure the build succeeded without any errors.
    4. Go to your selected output path, and run the exe file from the command line window with `QuickStart.exe` or just double click it from the file explorer.
 
