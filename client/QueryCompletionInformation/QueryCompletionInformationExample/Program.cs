@@ -1,19 +1,24 @@
-﻿using Kusto.Cloud.Platform.Data;
-using Kusto.Data;
+﻿using Kusto.Data;
 using Kusto.Data.Data;
 using Kusto.Data.Net.Client;
+using System;
+using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace QueryCompletionInformationExample
 {
     /// <summary>
     /// This example demonstrates how to retrieve the QueryCompletionInformation from a Kusto query response stream.
-    /// The goal is to process a specific table named "Table_2" (QueryCompletionInformation) from the response stream and print its column names and values to the console.
+    /// The QueryCompletionInformation is returned as part as any Kusto response and provides information about the query run itself
+    /// https://learn.microsoft.com/kusto/api/rest/response-v2?view=microsoft-fabric#the-meaning-of-tables-in-the-response
+    /// Here we use the ExecuteQueryV2Async which is the new API with a progressive dataset and KustoDataReaderParser.ParseV2 parses it.
+    /// Alternatively one may use ExecuteQueryAsync and ParseV1 and the QueryStatus table.
     /// </summary>
     internal class Program
     {
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
             // Initialize a connection string to a Kusto cluster with AAD User Prompt Authentication.
             // This method prompts the user to sign in to Azure Active Directory (AAD) as part of the authentication process.
@@ -65,36 +70,20 @@ reports
                 List<DataTable> dataTables = new List<DataTable>();
 
                 // Execute the query and retrieve the result.
-                using (var response = kustoClient.ExecuteQuery(database, query, null))
+                using (var response = await kustoClient.ExecuteQueryV2Async(database, query, null))
                 {
-                    // This C# code snippet is designed to process a sequence of data tables loaded from a response stream.
-                    // It continuously loads data tables from the response until the response is closed.
-                    // For each data table loaded, it checks if the table's name is "Table_2" (intersting table for Query completion information)
-                    // If a table named "Table_2" is found, it iterates through each row of the table.
-                    // For each row, it iterates through all columns, printing the column name and its corresponding value to the console.
-                    // After processing "Table_2", it breaks out of the loop, ignoring any subsequent tables in the response.
-                    // This snippet is typically used in scenarios where data is streamed from a database or a similar data source,
-                    // and there's a need to process a specific table from the stream.
-                    do
+                    // This C# code snippet is printing only the QueryCompletionInformation table out of the all the tables that are returned in a Kusto response.
+                    var QueryCompletionInformationTable = KustoDataReaderParser.ParseV2(response, Guid.NewGuid().ToString(), KustoDataReaderParserTraits.None)[WellKnownDataSet.QueryCompletionInformation].Single().TableData;
+
+                    foreach (DataRow row in QueryCompletionInformationTable.Rows)
                     {
-                        DataTable dataTable = new DataTable();
-                        dataTable.Load(response);
-
-                        if (dataTable.TableName.Equals("Table_2"))
+                        foreach (DataColumn column in QueryCompletionInformationTable.Columns)
                         {
-                            foreach (DataRow row in dataTable.Rows)
-                            {
-                                foreach (DataColumn column in dataTable.Columns)
-                                {
-                                    string columnName = column.ColumnName;
-                                    object columnValue = row[columnName];
-                                    Console.WriteLine($"{columnName}: {columnValue}");
-                                }
-                            }
-
-                            break;
+                            string columnName = column.ColumnName;
+                            object columnValue = row[columnName];
+                            Console.WriteLine($"{columnName}: {columnValue}");
                         }
-                    } while (!response.IsClosed);
+                    }
                 }
             }
         }
